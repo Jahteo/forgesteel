@@ -65,7 +65,7 @@ const manifestPlugin = (): Plugin => {
 
 // https://vitejs.dev/config/
 export default defineConfig({
-	base: '/',
+	base: process.env.GITHUB_PAGES === 'true' ? '/forgesteel/' : '/',
 	build: {
 		chunkSizeWarningLimit: 10000,
 		rollupOptions: {
