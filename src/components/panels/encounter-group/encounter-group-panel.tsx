@@ -1,5 +1,5 @@
 import { Alert, Button, Flex, Popover, Segmented, Space, Tag, Tooltip } from 'antd';
-import { DownOutlined, EllipsisOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, CloseCircleOutlined, DownOutlined, EllipsisOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
 import { Encounter, EncounterGroup } from '@/models/encounter';
 import { HeroInfo, MonsterInfo, TerrainInfo } from '@/components/panels/token/token';
 import { Characteristic } from '@/enums/characteristic';
@@ -36,6 +36,8 @@ interface EncounterGroupHeroProps {
 	onSelect: (hero: Hero) => void;
 	onSelectMonster: (monster: Monster, monsterGroupID: string) => void;
 	onSelectMinionSlot: (slot: EncounterSlot) => void;
+	onToggleDefeated: (monster: Monster) => void;
+	onToggleMinionSlotDefeated: (slot: EncounterSlot) => void;
 	onSetState: (hero: Hero, value: 'ready' | 'current' | 'finished') => void;
 	onAddSquad: (hero: Hero, monster: Monster, count: number) => void;
 	onRemoveSquad: (hero: Hero, slotID: string) => void;
@@ -243,6 +245,8 @@ export const EncounterGroupHero = (props: EncounterGroupHeroProps) => {
 										sourcebooks={props.sourcebooks}
 										onSelectMonster={props.onSelectMonster}
 										onSelectMinionSlot={props.onSelectMinionSlot}
+										onToggleDefeated={props.onToggleDefeated}
+										onToggleMinionSlotDefeated={props.onToggleMinionSlotDefeated}
 									/>
 									{slot.monsters.length === 0 ? <div>Empty</div> : null}
 								</div>
@@ -262,6 +266,8 @@ interface EncounterGroupMonsterProps {
 	sourcebooks: Sourcebook[];
 	onSelectMonster: (monster: Monster, monsterGroupID: string) => void;
 	onSelectMinionSlot: (slot: EncounterSlot) => void;
+	onToggleDefeated: (monster: Monster) => void;
+	onToggleMinionSlotDefeated: (slot: EncounterSlot) => void;
 	onSetName: (group: EncounterGroup, value: string) => void;
 	onSetState: (group: EncounterGroup, value: 'ready' | 'current' | 'finished') => void;
 	onDuplicate: (group: EncounterGroup) => void;
@@ -324,6 +330,8 @@ export const EncounterGroupMonster = (props: EncounterGroupMonsterProps) => {
 								sourcebooks={props.sourcebooks}
 								onSelectMonster={props.onSelectMonster}
 								onSelectMinionSlot={props.onSelectMinionSlot}
+								onToggleDefeated={props.onToggleDefeated}
+								onToggleMinionSlotDefeated={props.onToggleMinionSlotDefeated}
 							/>
 						))
 					}
@@ -339,6 +347,8 @@ interface MonsterSlotProps {
 	sourcebooks: Sourcebook[];
 	onSelectMonster: (monster: Monster, monsterGroupID: string) => void;
 	onSelectMinionSlot: (slot: EncounterSlot) => void;
+	onToggleDefeated?: (monster: Monster) => void;
+	onToggleMinionSlotDefeated?: (slot: EncounterSlot) => void;
 }
 
 export const MonsterSlot = (props: MonsterSlotProps) => {
@@ -467,6 +477,20 @@ export const MonsterSlot = (props: MonsterSlotProps) => {
 									{props.slot.state.conditions.map(c => <Tooltip title={ConditionLogic.getDescription(c.type)}><Tag key={c.id} variant='outlined'>{ConditionLogic.getFullDescription(c)}</Tag></Tooltip>)}
 								</Flex>
 							</div>
+							{
+								props.onToggleMinionSlotDefeated ?
+									<Tooltip title={props.slot.state.defeated ? 'Mark as alive' : 'Mark as defeated'}>
+										<Button
+											type='text'
+											icon={props.slot.state.defeated ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+											onClick={e => {
+												e.stopPropagation();
+												props.onToggleMinionSlotDefeated!(props.slot);
+											}}
+										/>
+									</Tooltip>
+									: null
+							}
 							<Button
 								type='text'
 								icon={showMonsters ? <DownOutlined rotate={180} /> : <DownOutlined />}
@@ -550,6 +574,20 @@ export const MonsterSlot = (props: MonsterSlotProps) => {
 										{monster.state.conditions.map(c => <Tooltip title={ConditionLogic.getDescription(c.type)}><Tag key={c.id} variant='outlined'>{ConditionLogic.getFullDescription(c)}</Tag></Tooltip>)}
 									</Flex>
 								</div>
+								{
+									props.onToggleDefeated ?
+										<Tooltip title={monster.state.defeated ? 'Mark as alive' : 'Mark as defeated'}>
+											<Button
+												type='text'
+												icon={monster.state.defeated ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+												onClick={e => {
+													e.stopPropagation();
+													props.onToggleDefeated!(monster);
+												}}
+											/>
+										</Tooltip>
+										: null
+								}
 							</div>
 						))
 						: null

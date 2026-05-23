@@ -89,6 +89,60 @@ export const EncounterRunPanel = (props: Props) => {
 		props.onChange(copy);
 	};
 
+	const toggleMonsterDefeated = (monster: Monster) => {
+		const copy = Utils.copy(encounter);
+		const newDefeated = !monster.state.defeated;
+
+		[
+			...copy.groups.flatMap(g => g.slots),
+			...copy.heroes.flatMap(h => h.state.controlledSlots)
+		].forEach(slot => {
+			const index = slot.monsters.findIndex(m => m.id === monster.id);
+			if (index !== -1) {
+				slot.monsters[index].state.defeated = newDefeated;
+			}
+		});
+
+		if (newDefeated) {
+			const captainIDs = copy.groups
+				.flatMap(g => g.slots)
+				.flatMap(s => s.monsters)
+				.filter(m => m.role.organization !== MonsterOrganizationType.Minion)
+				.filter(m => !m.state.defeated)
+				.map(m => m.id);
+			copy.groups.forEach(g => {
+				g.slots.forEach(s => {
+					if (s.state.captainID && !captainIDs.includes(s.state.captainID)) {
+						s.state.captainID = undefined;
+					}
+				});
+			});
+		}
+
+		setEncounter(copy);
+		props.onChange(copy);
+	};
+
+	const toggleMinionSlotDefeated = (slot: EncounterSlot) => {
+		const copy = Utils.copy(encounter);
+		const newDefeated = !slot.state.defeated;
+
+		[
+			...copy.groups.flatMap(g => g.slots),
+			...copy.heroes.flatMap(h => h.state.controlledSlots)
+		].forEach(s => {
+			if (s.id === slot.id) {
+				s.state.defeated = newDefeated;
+				if (newDefeated) {
+					s.monsters.forEach(m => m.state.defeated = true);
+				}
+			}
+		});
+
+		setEncounter(copy);
+		props.onChange(copy);
+	};
+
 	const nextTurn = () => {
 		setSelectingGroup(true);
 	};
@@ -253,6 +307,8 @@ export const EncounterRunPanel = (props: Props) => {
 						setSelectedMonster({ monster: monster, monsterGroup: group, isTeamHero: false });
 					}}
 					onSelectMinionSlot={setSelectedMinionSlot}
+					onToggleDefeated={toggleMonsterDefeated}
+					onToggleMinionSlotDefeated={toggleMinionSlotDefeated}
 					onSetName={(_group, value) => setGroupName(value)}
 					onSetState={(_group, value) => setGroupEncounterState(value)}
 					onDuplicate={duplicateGroup}
@@ -342,6 +398,8 @@ export const EncounterRunPanel = (props: Props) => {
 						setSelectedMonster({ monster: monster, monsterGroup: group, isTeamHero: true });
 					}}
 					onSelectMinionSlot={setSelectedMinionSlot}
+					onToggleDefeated={toggleMonsterDefeated}
+					onToggleMinionSlotDefeated={toggleMinionSlotDefeated}
 					onSetState={setEncounterState}
 					onAddSquad={addSquad}
 					onAddMonsterToSquad={addMonsterToSquad}
