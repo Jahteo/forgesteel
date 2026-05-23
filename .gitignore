@@ -6,3 +6,7 @@ node_modules
 .vscode/*
 .env
 .env.local
+
+# Screenshot capture scripts
+screenshot.js
+screenshot.cjs
