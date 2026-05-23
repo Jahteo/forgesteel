@@ -1,14 +1,15 @@
 import { Button, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Career } from '@/models/career';
 import { CareerPanel } from '@/components/panels/elements/career-panel/career-panel';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Element } from '@/models/element';
 import { ElementEditPanel } from '@/components/panels/edit/element-edit/element-edit-panel';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
+import { PlusOutlined } from '@ant-design/icons';
 import { Feature } from '@/models/feature';
 import { FeatureListEditPanel } from '@/components/panels/edit/feature-list-edit/feature-list-edit-panel';
 import { HeaderText } from '@/components/controls/header-text/header-text';
@@ -88,12 +89,16 @@ export const CareerEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveIncident = (e: Element, direction: 'up' | 'down') => {
-			const copy = Utils.copy(career);
-			const index = copy.incitingIncidents.options.findIndex(o => o.id === e.id);
-			copy.incitingIncidents.options = Collections.move(copy.incitingIncidents.options, index, direction);
-			setCareer(copy);
-			props.onChange(copy);
+		const onDragEnd = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(career);
+				const oldIndex = copy.incitingIncidents.options.findIndex(o => o.id === active.id);
+				const newIndex = copy.incitingIncidents.options.findIndex(o => o.id === over.id);
+				copy.incitingIncidents.options = arrayMove(copy.incitingIncidents.options, oldIndex, newIndex);
+				setCareer(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteIncident = (e: Element) => {
@@ -112,24 +117,27 @@ export const CareerEditPanel = (props: Props) => {
 				>
 					Inciting Incidents
 				</HeaderText>
-				{
-					career.incitingIncidents.options.map(o => (
-						<Expander
-							key={o.id}
-							title={o.name || 'Unnamed Incident'}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveIncident(o, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveIncident(o, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteIncident(o); }} />
-							]}
-						>
-							<ElementEditPanel
-								element={o}
-								onChange={changeIncident}
-							/>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+					<SortableContext items={career.incitingIncidents.options.map(o => o.id)} strategy={verticalListSortingStrategy}>
+						{
+							career.incitingIncidents.options.map(o => (
+								<DraggableExpander
+									key={o.id}
+									id={o.id}
+									title={o.name || 'Unnamed Incident'}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteIncident(o); }} />
+									]}
+								>
+									<ElementEditPanel
+										element={o}
+										onChange={changeIncident}
+									/>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					career.incitingIncidents.options.length === 0 ?
 						<Empty />

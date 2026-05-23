@@ -1,5 +1,6 @@
 import { Button, Segmented, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Feature, FeatureChoice } from '@/models/feature';
 import { Ancestry } from '@/models/ancestry';
 import { AncestryLogic } from '@/logic/ancestry-logic';
@@ -9,9 +10,10 @@ import { Culture } from '@/models/culture';
 import { CultureEditPanel } from '@/components/panels/edit/culture-edit/culture-edit-panel';
 import { CultureType } from '@/enums/culture-type';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
+import { PlusOutlined } from '@ant-design/icons';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { FeatureEditPanel } from '@/components/panels/edit/feature-edit/feature-edit-panel';
 import { FeatureLogic } from '@/logic/feature-logic';
@@ -82,12 +84,16 @@ export const AncestryEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveFeature = (feature: Feature, direction: 'up' | 'down') => {
-			const copy = Utils.copy(ancestry);
-			const index = copy.features.findIndex(f => f.id === feature.id);
-			copy.features = Collections.move(copy.features, index, direction);
-			setAncestry(copy);
-			props.onChange(copy);
+		const onDragEnd = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(ancestry);
+				const oldIndex = copy.features.findIndex(f => f.id === active.id);
+				const newIndex = copy.features.findIndex(f => f.id === over.id);
+				copy.features = arrayMove(copy.features, oldIndex, newIndex);
+				setAncestry(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteFeature = (feature: Feature) => {
@@ -108,26 +114,29 @@ export const AncestryEditPanel = (props: Props) => {
 				>
 					Signature Traits
 				</HeaderText>
-				{
-					features.map(f => (
-						<Expander
-							key={f.id}
-							title={f.name || 'Unnamed Feature'}
-							tags={[ FeatureLogic.getFeatureTag(f) ]}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveFeature(f, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveFeature(f, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteFeature(f); }} />
-							]}
-						>
-							<FeatureEditPanel
-								feature={f}
-								sourcebooks={props.sourcebooks}
-								onChange={changeFeature}
-							/>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+					<SortableContext items={features.map(f => f.id)} strategy={verticalListSortingStrategy}>
+						{
+							features.map(f => (
+								<DraggableExpander
+									key={f.id}
+									id={f.id}
+									title={f.name || 'Unnamed Feature'}
+									tags={[ FeatureLogic.getFeatureTag(f) ]}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteFeature(f); }} />
+									]}
+								>
+									<FeatureEditPanel
+										feature={f}
+										sourcebooks={props.sourcebooks}
+										onChange={changeFeature}
+									/>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					features.length === 0 ?
 						<Empty />
@@ -180,14 +189,18 @@ export const AncestryEditPanel = (props: Props) => {
 			}
 		};
 
-		const moveFeature = (featureID: string, direction: 'up' | 'down') => {
-			const copy = Utils.copy(ancestry);
-			const choice = copy.features.find(x => x.id === choiceFeature.id);
-			if (choice) {
-				const index = (choice as FeatureChoice).data.options.findIndex(f => f.feature.id === featureID);
-				(choice as FeatureChoice).data.options = Collections.move((choice as FeatureChoice).data.options, index, direction);
-				setAncestry(copy);
-				props.onChange(copy);
+		const onDragEndPurchased = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(ancestry);
+				const choice = copy.features.find(x => x.id === choiceFeature.id);
+				if (choice) {
+					const oldIndex = (choice as FeatureChoice).data.options.findIndex(f => f.feature.id === active.id);
+					const newIndex = (choice as FeatureChoice).data.options.findIndex(f => f.feature.id === over.id);
+					(choice as FeatureChoice).data.options = arrayMove((choice as FeatureChoice).data.options, oldIndex, newIndex);
+					setAncestry(copy);
+					props.onChange(copy);
+				}
 			}
 		};
 
@@ -214,28 +227,31 @@ export const AncestryEditPanel = (props: Props) => {
 				>
 					Purchased Traits
 				</HeaderText>
-				{
-					features.map(f => (
-						<Expander
-							key={f.feature.id}
-							title={f.feature.name || 'Unnamed Feature'}
-							tags={[ FeatureLogic.getFeatureTag(f.feature) ]}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveFeature(f.feature.id, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveFeature(f.feature.id, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteFeature(f.feature.id); }} />
-							]}
-						>
-							<HeaderText>Cost</HeaderText>
-							<NumberSpin min={1} max={2} value={f.value} onChange={v => changeFeature({ feature: f.feature, value: v })} />
-							<FeatureEditPanel
-								feature={f.feature}
-								sourcebooks={props.sourcebooks}
-								onChange={x => changeFeature({ feature: x, value: f.value })}
-							/>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndPurchased}>
+					<SortableContext items={features.map(f => f.feature.id)} strategy={verticalListSortingStrategy}>
+						{
+							features.map(f => (
+								<DraggableExpander
+									key={f.feature.id}
+									id={f.feature.id}
+									title={f.feature.name || 'Unnamed Feature'}
+									tags={[ FeatureLogic.getFeatureTag(f.feature) ]}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteFeature(f.feature.id); }} />
+									]}
+								>
+									<HeaderText>Cost</HeaderText>
+									<NumberSpin min={1} max={2} value={f.value} onChange={v => changeFeature({ feature: f.feature, value: v })} />
+									<FeatureEditPanel
+										feature={f.feature}
+										sourcebooks={props.sourcebooks}
+										onChange={x => changeFeature({ feature: x, value: f.value })}
+									/>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					features.length === 0 ?
 						<Empty />

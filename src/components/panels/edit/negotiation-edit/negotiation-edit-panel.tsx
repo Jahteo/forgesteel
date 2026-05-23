@@ -1,11 +1,12 @@
 import { Button, Select, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AttitudeType } from '@/enums/attitude-type';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
+import { PlusOutlined } from '@ant-design/icons';
 import { Field } from '@/components/controls/field/field';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { MarkdownEditor } from '@/components/controls/markdown/markdown';
@@ -128,11 +129,14 @@ export const NegotiationEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveMotivation = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(negotiation);
-			copy.motivations = Collections.move(copy.motivations, index, direction);
-			setNegotiation(copy);
-			props.onChange(copy);
+		const onDragEndMotivations = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(negotiation);
+				copy.motivations = arrayMove(copy.motivations, Number(active.id), Number(over.id));
+				setNegotiation(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteMotivation = (trait: NegotiationTrait) => {
@@ -151,32 +155,35 @@ export const NegotiationEditPanel = (props: Props) => {
 				>
 					Motivations
 				</HeaderText>
-				{
-					negotiation.motivations.map((m, n) => (
-						<Expander
-							key={`m${n}`}
-							title={m.trait}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveMotivation(n, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveMotivation(n, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteMotivation(m.trait); }} />
-							]}
-						>
-							<HeaderText>Motivation</HeaderText>
-							<Space orientation='vertical' style={{ width: '100%' }}>
-								<Select
-									style={{ width: '100%' }}
-									placeholder='Trait'
-									options={[ NegotiationTrait.Benevolence, NegotiationTrait.Discovery, NegotiationTrait.Freedom, NegotiationTrait.Greed, NegotiationTrait.HigherAuthority, NegotiationTrait.Justice, NegotiationTrait.Legacy, NegotiationTrait.Peace, NegotiationTrait.Power, NegotiationTrait.Protection, NegotiationTrait.Revelry, NegotiationTrait.Vengeance ].map(nt => ({ label: nt, value: nt, desc: NegotiationLogic.getMotivationDescription(nt) }))}
-									optionRender={option => <Field label={option.data.label} value={option.data.desc} />}
-									value={m.trait}
-									onChange={t => setMotivationTrait(n, t)}
-								/>
-								<MarkdownEditor placeholder='Description' value={m.description} onChange={value => setMotivationDescription(n, value)} />
-							</Space>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndMotivations}>
+					<SortableContext items={negotiation.motivations.map((_, n) => String(n))} strategy={verticalListSortingStrategy}>
+						{
+							negotiation.motivations.map((m, n) => (
+								<DraggableExpander
+									key={`m${n}`}
+									id={String(n)}
+									title={m.trait}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteMotivation(m.trait); }} />
+									]}
+								>
+									<HeaderText>Motivation</HeaderText>
+									<Space orientation='vertical' style={{ width: '100%' }}>
+										<Select
+											style={{ width: '100%' }}
+											placeholder='Trait'
+											options={[ NegotiationTrait.Benevolence, NegotiationTrait.Discovery, NegotiationTrait.Freedom, NegotiationTrait.Greed, NegotiationTrait.HigherAuthority, NegotiationTrait.Justice, NegotiationTrait.Legacy, NegotiationTrait.Peace, NegotiationTrait.Power, NegotiationTrait.Protection, NegotiationTrait.Revelry, NegotiationTrait.Vengeance ].map(nt => ({ label: nt, value: nt, desc: NegotiationLogic.getMotivationDescription(nt) }))}
+											optionRender={option => <Field label={option.data.label} value={option.data.desc} />}
+											value={m.trait}
+											onChange={t => setMotivationTrait(n, t)}
+										/>
+										<MarkdownEditor placeholder='Description' value={m.description} onChange={value => setMotivationDescription(n, value)} />
+									</Space>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					negotiation.motivations.length === 0 ?
 						<Empty />
@@ -213,11 +220,14 @@ export const NegotiationEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const movePitfall = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(negotiation);
-			copy.pitfalls = Collections.move(copy.pitfalls, index, direction);
-			setNegotiation(copy);
-			props.onChange(copy);
+		const onDragEndPitfalls = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(negotiation);
+				copy.pitfalls = arrayMove(copy.pitfalls, Number(active.id), Number(over.id));
+				setNegotiation(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deletePitfall = (trait: NegotiationTrait) => {
@@ -236,32 +246,35 @@ export const NegotiationEditPanel = (props: Props) => {
 				>
 					Pitfalls
 				</HeaderText>
-				{
-					negotiation.pitfalls.map((p, n) => (
-						<Expander
-							key={`p${n}`}
-							title={p.trait}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); movePitfall(n, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); movePitfall(n, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deletePitfall(p.trait); }} />
-							]}
-						>
-							<HeaderText>Pitfall</HeaderText>
-							<Space orientation='vertical' style={{ width: '100%' }}>
-								<Select
-									style={{ width: '100%' }}
-									placeholder='Trait'
-									options={[ NegotiationTrait.Benevolence, NegotiationTrait.Discovery, NegotiationTrait.Freedom, NegotiationTrait.Greed, NegotiationTrait.HigherAuthority, NegotiationTrait.Justice, NegotiationTrait.Legacy, NegotiationTrait.Peace, NegotiationTrait.Power, NegotiationTrait.Protection, NegotiationTrait.Revelry, NegotiationTrait.Vengeance ].map(nt => ({ label: nt, value: nt, desc: NegotiationLogic.getPitfallDescription(nt) }))}
-									optionRender={option => <Field label={option.data.label} value={option.data.desc} />}
-									value={p.trait}
-									onChange={t => setPitfallTrait(n, t)}
-								/>
-								<MarkdownEditor placeholder='Description' value={p.description} onChange={value => setPitfallDescription(n, value)} />
-							</Space>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndPitfalls}>
+					<SortableContext items={negotiation.pitfalls.map((_, n) => String(n))} strategy={verticalListSortingStrategy}>
+						{
+							negotiation.pitfalls.map((p, n) => (
+								<DraggableExpander
+									key={`p${n}`}
+									id={String(n)}
+									title={p.trait}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deletePitfall(p.trait); }} />
+									]}
+								>
+									<HeaderText>Pitfall</HeaderText>
+									<Space orientation='vertical' style={{ width: '100%' }}>
+										<Select
+											style={{ width: '100%' }}
+											placeholder='Trait'
+											options={[ NegotiationTrait.Benevolence, NegotiationTrait.Discovery, NegotiationTrait.Freedom, NegotiationTrait.Greed, NegotiationTrait.HigherAuthority, NegotiationTrait.Justice, NegotiationTrait.Legacy, NegotiationTrait.Peace, NegotiationTrait.Power, NegotiationTrait.Protection, NegotiationTrait.Revelry, NegotiationTrait.Vengeance ].map(nt => ({ label: nt, value: nt, desc: NegotiationLogic.getPitfallDescription(nt) }))}
+											optionRender={option => <Field label={option.data.label} value={option.data.desc} />}
+											value={p.trait}
+											onChange={t => setPitfallTrait(n, t)}
+										/>
+										<MarkdownEditor placeholder='Description' value={p.description} onChange={value => setPitfallDescription(n, value)} />
+									</Space>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					negotiation.pitfalls.length === 0 ?
 						<Empty />

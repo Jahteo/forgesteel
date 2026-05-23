@@ -1,14 +1,16 @@
 import { Alert, Button, Drawer, Popover, Segmented, Select, Space, Tabs, Upload } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, CopyOutlined, DownloadOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { CopyOutlined, DownloadOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Ability } from '@/models/ability';
 import { AbilityEditPanel } from '@/components/panels/edit/ability-edit/ability-edit-panel';
 import { Characteristic } from '@/enums/characteristic';
 import { ClassPanel } from '@/components/panels/elements/class-panel/class-panel';
 import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { Feature } from '@/models/feature';
 import { FeatureListEditPanel } from '@/components/panels/edit/feature-list-edit/feature-list-edit-panel';
@@ -99,11 +101,14 @@ export const ClassEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveCharacteristicSet = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(heroClass);
-			copy.primaryCharacteristicsOptions = Collections.move(copy.primaryCharacteristicsOptions, index, direction);
-			setHeroClass(copy);
-			props.onChange(copy);
+		const onDragEndCharacteristicSets = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(heroClass);
+				copy.primaryCharacteristicsOptions = arrayMove(copy.primaryCharacteristicsOptions, Number(active.id), Number(over.id));
+				setHeroClass(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteCharacteristicSet = (index: number) => {
@@ -150,36 +155,39 @@ export const ClassEditPanel = (props: Props) => {
 				>
 					Primary Characteristics
 				</HeaderText>
-				{
-					heroClass.primaryCharacteristicsOptions.map((o, n) => (
-						<Expander
-							key={n}
-							title={o.join(', ') || 'No Characteristics'}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveCharacteristicSet(n, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveCharacteristicSet(n, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteCharacteristicSet(n); }} />
-							]}
-						>
-							<Space orientation='vertical' style={{ width: '100%' }}>
-								<Toggle label={Characteristic.Might} value={o.includes(Characteristic.Might)} onChange={() => toggleCharacteristic(n, Characteristic.Might)} />
-								<Toggle label={Characteristic.Agility} value={o.includes(Characteristic.Agility)} onChange={() => toggleCharacteristic(n, Characteristic.Agility)} />
-								<Toggle label={Characteristic.Reason} value={o.includes(Characteristic.Reason)} onChange={() => toggleCharacteristic(n, Characteristic.Reason)} />
-								<Toggle label={Characteristic.Intuition} value={o.includes(Characteristic.Intuition)} onChange={() => toggleCharacteristic(n, Characteristic.Intuition)} />
-								<Toggle label={Characteristic.Presence} value={o.includes(Characteristic.Presence)} onChange={() => toggleCharacteristic(n, Characteristic.Presence)} />
-								{
-									(o.length === 0) || (o.length >= 3) ?
-										<Alert
-											type='warning'
-											showIcon={true}
-											title='One or two characteristics must be selected.'
-										/>
-										: null
-								}
-							</Space>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndCharacteristicSets}>
+					<SortableContext items={heroClass.primaryCharacteristicsOptions.map((_, n) => String(n))} strategy={verticalListSortingStrategy}>
+						{
+							heroClass.primaryCharacteristicsOptions.map((o, n) => (
+								<DraggableExpander
+									key={n}
+									id={String(n)}
+									title={o.join(', ') || 'No Characteristics'}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteCharacteristicSet(n); }} />
+									]}
+								>
+									<Space orientation='vertical' style={{ width: '100%' }}>
+										<Toggle label={Characteristic.Might} value={o.includes(Characteristic.Might)} onChange={() => toggleCharacteristic(n, Characteristic.Might)} />
+										<Toggle label={Characteristic.Agility} value={o.includes(Characteristic.Agility)} onChange={() => toggleCharacteristic(n, Characteristic.Agility)} />
+										<Toggle label={Characteristic.Reason} value={o.includes(Characteristic.Reason)} onChange={() => toggleCharacteristic(n, Characteristic.Reason)} />
+										<Toggle label={Characteristic.Intuition} value={o.includes(Characteristic.Intuition)} onChange={() => toggleCharacteristic(n, Characteristic.Intuition)} />
+										<Toggle label={Characteristic.Presence} value={o.includes(Characteristic.Presence)} onChange={() => toggleCharacteristic(n, Characteristic.Presence)} />
+										{
+											(o.length === 0) || (o.length >= 3) ?
+												<Alert
+													type='warning'
+													showIcon={true}
+													title='One or two characteristics must be selected.'
+												/>
+												: null
+										}
+									</Space>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					heroClass.primaryCharacteristicsOptions.length === 0 ?
 						<Alert
@@ -247,12 +255,16 @@ export const ClassEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveAbility = (ability: Ability, direction: 'up' | 'down') => {
-			const copy = Utils.copy(heroClass);
-			const index = copy.abilities.findIndex(a => a.id === ability.id);
-			copy.abilities = Collections.move(copy.abilities, index, direction);
-			setHeroClass(copy);
-			props.onChange(copy);
+		const onDragEndAbilities = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(heroClass);
+				const oldIndex = copy.abilities.findIndex(a => a.id === active.id);
+				const newIndex = copy.abilities.findIndex(a => a.id === over.id);
+				copy.abilities = arrayMove(copy.abilities, oldIndex, newIndex);
+				setHeroClass(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteAbility = (ability: Ability) => {
@@ -272,25 +284,28 @@ export const ClassEditPanel = (props: Props) => {
 					Abilities
 				</HeaderText>
 				<Space orientation='vertical' style={{ width: '100%' }}>
-					{
-						heroClass.abilities.map(a => (
-							<Expander
-								key={a.id}
-								title={a.name || 'Unnamed Ability'}
-								tags={[ a.type.usage ]}
-								extra={[
-									<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveAbility(a, 'up'); }} />,
-									<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveAbility(a, 'down'); }} />,
-									<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteAbility(a); }} />
-								]}
-							>
-								<AbilityEditPanel
-									ability={a}
-									onChange={changeAbility}
-								/>
-							</Expander>
-						))
-					}
+					<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndAbilities}>
+						<SortableContext items={heroClass.abilities.map(a => a.id)} strategy={verticalListSortingStrategy}>
+							{
+								heroClass.abilities.map(a => (
+									<DraggableExpander
+										key={a.id}
+										id={a.id}
+										title={a.name || 'Unnamed Ability'}
+										tags={[ a.type.usage ]}
+										extra={[
+											<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteAbility(a); }} />
+										]}
+									>
+										<AbilityEditPanel
+											ability={a}
+											onChange={changeAbility}
+										/>
+									</DraggableExpander>
+								))
+							}
+						</SortableContext>
+					</DndContext>
 					{
 						heroClass.abilities.length === 0 ?
 							<Empty />
@@ -319,12 +334,16 @@ export const ClassEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveSubclass = (subclass: SubClass, direction: 'up' | 'down') => {
-			const copy = Utils.copy(heroClass);
-			const index = copy.subclasses.findIndex(sc => sc.id === subclass.id);
-			copy.subclasses = Collections.move(copy.subclasses, index, direction);
-			setHeroClass(copy);
-			props.onChange(copy);
+		const onDragEndSubclasses = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(heroClass);
+				const oldIndex = copy.subclasses.findIndex(sc => sc.id === active.id);
+				const newIndex = copy.subclasses.findIndex(sc => sc.id === over.id);
+				copy.subclasses = arrayMove(copy.subclasses, oldIndex, newIndex);
+				setHeroClass(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteSubclass = (subclass: SubClass) => {
@@ -377,22 +396,25 @@ export const ClassEditPanel = (props: Props) => {
 					Subclasses
 				</HeaderText>
 				<Space orientation='vertical' style={{ width: '100%' }}>
-					{
-						heroClass.subclasses.map(sc => (
-							<Expander
-								key={sc.id}
-								title={sc.name || 'Unnamed Subclass'}
-								extra={[
-									<Button key='edit' type='text' title='Edit' icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setSubclassID(sc.id); }} />,
-									<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveSubclass(sc, 'up'); }} />,
-									<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveSubclass(sc, 'down'); }} />,
-									<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSubclass(sc); }} />
-								]}
-							>
-								<SubclassPanel subclass={sc} sourcebooks={props.sourcebooks} />
-							</Expander>
-						))
-					}
+					<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndSubclasses}>
+						<SortableContext items={heroClass.subclasses.map(sc => sc.id)} strategy={verticalListSortingStrategy}>
+							{
+								heroClass.subclasses.map(sc => (
+									<DraggableExpander
+										key={sc.id}
+										id={sc.id}
+										title={sc.name || 'Unnamed Subclass'}
+										extra={[
+											<Button key='edit' type='text' title='Edit' icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setSubclassID(sc.id); }} />,
+											<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSubclass(sc); }} />
+										]}
+									>
+										<SubclassPanel subclass={sc} sourcebooks={props.sourcebooks} />
+									</DraggableExpander>
+								))
+							}
+						</SortableContext>
+					</DndContext>
 					{
 						heroClass.subclasses.length === 0 ?
 							<Empty />

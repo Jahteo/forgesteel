@@ -1,13 +1,14 @@
 import { Button, Divider, Segmented, Select, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { FeatureAbility, FeatureText } from '@/models/feature';
-import { Collections } from '@/utils/collections';
 import { DamageModifierType } from '@/enums/damage-modifier-type';
 import { DamageType } from '@/enums/damage-type';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { FeatureEditPanel } from '@/components/panels/edit/feature-edit/feature-edit-panel';
 import { FeatureType } from '@/enums/feature-type';
@@ -243,10 +244,13 @@ export const TerrainEditPanel = (props: Props) => {
 			updateTerrain(copy);
 		};
 
-		const moveDamageMod = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(terrain);
-			copy.damageMods = Collections.move(copy.damageMods, index, direction);
-			updateTerrain(copy);
+		const onDragEndDamageMods = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(terrain);
+				copy.damageMods = arrayMove(copy.damageMods, Number(active.id), Number(over.id));
+				updateTerrain(copy);
+			}
 		};
 
 		const deleteDamageMod = (index: number) => {
@@ -264,39 +268,42 @@ export const TerrainEditPanel = (props: Props) => {
 				>
 					Damage Modifiers
 				</HeaderText>
-				{
-					terrain.damageMods.map((dm, n) => (
-						<Expander
-							key={n}
-							title={FormatLogic.getDamageModifier(dm)}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveDamageMod(n, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveDamageMod(n, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteDamageMod(n); }} />
-							]}
-						>
-							<HeaderText>Modifier Type</HeaderText>
-							<Segmented
-								name='modifiertypes'
-								block={true}
-								options={[ DamageModifierType.Immunity, DamageModifierType.Weakness ]}
-								value={dm.type}
-								onChange={value => setModifierType(n, value)}
-							/>
-							<HeaderText>Damage Type</HeaderText>
-							<Select
-								style={{ width: '100%' }}
-								placeholder='Damage type'
-								options={[ DamageType.Damage, DamageType.Acid, DamageType.Cold, DamageType.Corruption, DamageType.Fire, DamageType.Holy, DamageType.Lightning, DamageType.Poison, DamageType.Psychic, DamageType.Sonic ].map(option => ({ value: option }))}
-								optionRender={option => <div className='ds-text'>{option.data.value}</div>}
-								value={dm.damageType}
-								onChange={value => setDamageType(n, value)}
-							/>
-							<HeaderText>Value</HeaderText>
-							<NumberSpin min={0} value={dm.value} onChange={value => setValue(n, value)} />
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndDamageMods}>
+					<SortableContext items={terrain.damageMods.map((_, n) => String(n))} strategy={verticalListSortingStrategy}>
+						{
+							terrain.damageMods.map((dm, n) => (
+								<DraggableExpander
+									key={n}
+									id={String(n)}
+									title={FormatLogic.getDamageModifier(dm)}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteDamageMod(n); }} />
+									]}
+								>
+									<HeaderText>Modifier Type</HeaderText>
+									<Segmented
+										name='modifiertypes'
+										block={true}
+										options={[ DamageModifierType.Immunity, DamageModifierType.Weakness ]}
+										value={dm.type}
+										onChange={value => setModifierType(n, value)}
+									/>
+									<HeaderText>Damage Type</HeaderText>
+									<Select
+										style={{ width: '100%' }}
+										placeholder='Damage type'
+										options={[ DamageType.Damage, DamageType.Acid, DamageType.Cold, DamageType.Corruption, DamageType.Fire, DamageType.Holy, DamageType.Lightning, DamageType.Poison, DamageType.Psychic, DamageType.Sonic ].map(option => ({ value: option }))}
+										optionRender={option => <div className='ds-text'>{option.data.value}</div>}
+										value={dm.damageType}
+										onChange={value => setDamageType(n, value)}
+									/>
+									<HeaderText>Value</HeaderText>
+									<NumberSpin min={0} value={dm.value} onChange={value => setValue(n, value)} />
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					terrain.damageMods.length === 0 ?
 						<Empty />
@@ -322,10 +329,15 @@ export const TerrainEditPanel = (props: Props) => {
 			updateTerrain(copy);
 		};
 
-		const moveSection = (sectionIndex: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(terrain);
-			copy.sections = Collections.move(copy.sections, sectionIndex, direction);
-			updateTerrain(copy);
+		const onDragEndSections = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(terrain);
+				const oldIndex = copy.sections.findIndex(s => s.id === active.id);
+				const newIndex = copy.sections.findIndex(s => s.id === over.id);
+				copy.sections = arrayMove(copy.sections, oldIndex, newIndex);
+				updateTerrain(copy);
+			}
 		};
 
 		const deleteSection = (sectionIndex: number) => {
@@ -346,10 +358,15 @@ export const TerrainEditPanel = (props: Props) => {
 			updateTerrain(copy);
 		};
 
-		const moveSectionContent = (sectionIndex: number, contentIndex: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(terrain);
-			copy.sections[sectionIndex].content = Collections.move(copy.sections[sectionIndex].content, contentIndex, direction);
-			updateTerrain(copy);
+		const onDragEndSectionContent = (sectionIndex: number) => (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(terrain);
+				const oldIndex = copy.sections[sectionIndex].content.findIndex(f => f.id === active.id);
+				const newIndex = copy.sections[sectionIndex].content.findIndex(f => f.id === over.id);
+				copy.sections[sectionIndex].content = arrayMove(copy.sections[sectionIndex].content, oldIndex, newIndex);
+				updateTerrain(copy);
+			}
 		};
 
 		const deleteSectionContent = (sectionIndex: number, contentIndex: number) => {
@@ -373,48 +390,54 @@ export const TerrainEditPanel = (props: Props) => {
 				>
 					Sections
 				</HeaderText>
-				{
-					terrain.sections.map((section, sectionIndex) => (
-						<Expander
-							key={section.id}
-							title='Section'
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveSection(sectionIndex, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveSection(sectionIndex, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSection(sectionIndex); }} />
-							]}
-						>
-							<Space orientation='vertical' style={{ width: '100%' }}>
-								{
-									section.content.map((feature, contentIndex) => (
-										<Expander
-											key={feature.id}
-											title={feature.name}
-											extra={[
-												<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveSectionContent(sectionIndex, contentIndex, 'up'); }} />,
-												<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveSectionContent(sectionIndex, contentIndex, 'down'); }} />,
-												<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSectionContent(sectionIndex, contentIndex); }} />
-											]}
-										>
-											<FeatureEditPanel
-												feature={feature}
-												allowedTypes={[ FeatureType.Text, FeatureType.Ability ]}
-												sourcebooks={props.sourcebooks}
-												onChange={f => setSectionContentFeature(sectionIndex, contentIndex, f as FeatureText | FeatureAbility)}
-											/>
-										</Expander>
-									))
-								}
-								{
-									section.content.length === 0 ?
-										<Empty />
-										: null
-								}
-								<Button icon={<PlusOutlined />} onClick={() => addSectionContent(sectionIndex)} />
-							</Space>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndSections}>
+					<SortableContext items={terrain.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+						{
+							terrain.sections.map((section, sectionIndex) => (
+								<DraggableExpander
+									key={section.id}
+									id={section.id}
+									title='Section'
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSection(sectionIndex); }} />
+									]}
+								>
+									<Space orientation='vertical' style={{ width: '100%' }}>
+										<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndSectionContent(sectionIndex)}>
+											<SortableContext items={section.content.map(f => f.id)} strategy={verticalListSortingStrategy}>
+												{
+													section.content.map((feature, contentIndex) => (
+														<DraggableExpander
+															key={feature.id}
+															id={feature.id}
+															title={feature.name}
+															extra={[
+																<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSectionContent(sectionIndex, contentIndex); }} />
+															]}
+														>
+															<FeatureEditPanel
+																feature={feature}
+																allowedTypes={[ FeatureType.Text, FeatureType.Ability ]}
+																sourcebooks={props.sourcebooks}
+																onChange={f => setSectionContentFeature(sectionIndex, contentIndex, f as FeatureText | FeatureAbility)}
+															/>
+														</DraggableExpander>
+													))
+												}
+											</SortableContext>
+										</DndContext>
+										{
+											section.content.length === 0 ?
+												<Empty />
+												: null
+										}
+										<Button icon={<PlusOutlined />} onClick={() => addSectionContent(sectionIndex)} />
+									</Space>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					terrain.sections.length === 0 ?
 						<Empty />
@@ -437,10 +460,15 @@ export const TerrainEditPanel = (props: Props) => {
 			updateTerrain(copy);
 		};
 
-		const moveUpgrade = (upgradeIndex: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(terrain);
-			copy.upgrades = Collections.move(copy.upgrades, upgradeIndex, direction);
-			updateTerrain(copy);
+		const onDragEndUpgrades = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(terrain);
+				const oldIndex = copy.upgrades.findIndex(u => u.id === active.id);
+				const newIndex = copy.upgrades.findIndex(u => u.id === over.id);
+				copy.upgrades = arrayMove(copy.upgrades, oldIndex, newIndex);
+				updateTerrain(copy);
+			}
 		};
 
 		const deleteUpgrade = (upgradeIndex: number) => {
@@ -482,10 +510,15 @@ export const TerrainEditPanel = (props: Props) => {
 			updateTerrain(copy);
 		};
 
-		const moveUpgradeSection = (upgradeIndex: number, sectionIndex: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(terrain);
-			copy.upgrades[upgradeIndex].sections = Collections.move(copy.sections, sectionIndex, direction);
-			updateTerrain(copy);
+		const onDragEndUpgradeSections = (upgradeIndex: number) => (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(terrain);
+				const oldIndex = copy.upgrades[upgradeIndex].sections.findIndex(s => s.id === active.id);
+				const newIndex = copy.upgrades[upgradeIndex].sections.findIndex(s => s.id === over.id);
+				copy.upgrades[upgradeIndex].sections = arrayMove(copy.upgrades[upgradeIndex].sections, oldIndex, newIndex);
+				updateTerrain(copy);
+			}
 		};
 
 		const deleteUpgradeSection = (upgradeIndex: number, sectionIndex: number) => {
@@ -506,10 +539,15 @@ export const TerrainEditPanel = (props: Props) => {
 			updateTerrain(copy);
 		};
 
-		const moveUpgradeSectionContent = (upgradeIndex: number, sectionIndex: number, contentIndex: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(terrain);
-			copy.upgrades[upgradeIndex].sections[sectionIndex].content = Collections.move(copy.sections[sectionIndex].content, contentIndex, direction);
-			updateTerrain(copy);
+		const onDragEndUpgradeSectionContent = (upgradeIndex: number, sectionIndex: number) => (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(terrain);
+				const oldIndex = copy.upgrades[upgradeIndex].sections[sectionIndex].content.findIndex(f => f.id === active.id);
+				const newIndex = copy.upgrades[upgradeIndex].sections[sectionIndex].content.findIndex(f => f.id === over.id);
+				copy.upgrades[upgradeIndex].sections[sectionIndex].content = arrayMove(copy.upgrades[upgradeIndex].sections[sectionIndex].content, oldIndex, newIndex);
+				updateTerrain(copy);
+			}
 		};
 
 		const deleteUpgradeSectionContent = (upgradeIndex: number, sectionIndex: number, contentIndex: number) => {
@@ -533,94 +571,103 @@ export const TerrainEditPanel = (props: Props) => {
 				>
 					Customizations
 				</HeaderText>
-				{
-					terrain.upgrades.map((upgrade, upgradeIndex) => (
-						<Expander
-							key={upgrade.id}
-							title={upgrade.label || 'Unnamed Customization'}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveUpgrade(upgradeIndex, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveUpgrade(upgradeIndex, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteUpgrade(upgradeIndex); }} />
-							]}
-						>
-							<Space orientation='vertical' style={{ width: '100%' }}>
-								<HeaderText>Label</HeaderText>
-								<TextInput
-									status={upgrade.label === '' ? 'warning' : ''}
-									placeholder='Label'
-									allowClear={true}
-									value={upgrade.label}
-									onChange={value => setUpgradeLabel(upgradeIndex, value)}
-								/>
-								<HeaderText>Text</HeaderText>
-								<MarkdownEditor value={upgrade.text} onChange={value => setUpgradeText(upgradeIndex, value)} />
-								<HeaderText>Cost</HeaderText>
-								<NumberSpin min={1} value={upgrade.cost} onChange={value => setUpgradeCost(upgradeIndex, value)} />
-								<HeaderText
-									extra={
-										<Button type='text' icon={<PlusOutlined />} onClick={() => addUpgradeSection(upgradeIndex)} />
-									}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndUpgrades}>
+					<SortableContext items={terrain.upgrades.map(u => u.id)} strategy={verticalListSortingStrategy}>
+						{
+							terrain.upgrades.map((upgrade, upgradeIndex) => (
+								<DraggableExpander
+									key={upgrade.id}
+									id={upgrade.id}
+									title={upgrade.label || 'Unnamed Customization'}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteUpgrade(upgradeIndex); }} />
+									]}
 								>
-									Sections
-								</HeaderText>
-								{
-									upgrade.sections.map((section, sectionIndex) => (
-										<Expander
-											key={section.id}
-											title='Section'
-											extra={[
-												<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveUpgradeSection(upgradeIndex, sectionIndex, 'up'); }} />,
-												<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveUpgradeSection(upgradeIndex, sectionIndex, 'down'); }} />,
-												<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteUpgradeSection(upgradeIndex, sectionIndex); }} />
-											]}
+									<Space orientation='vertical' style={{ width: '100%' }}>
+										<HeaderText>Label</HeaderText>
+										<TextInput
+											status={upgrade.label === '' ? 'warning' : ''}
+											placeholder='Label'
+											allowClear={true}
+											value={upgrade.label}
+											onChange={value => setUpgradeLabel(upgradeIndex, value)}
+										/>
+										<HeaderText>Text</HeaderText>
+										<MarkdownEditor value={upgrade.text} onChange={value => setUpgradeText(upgradeIndex, value)} />
+										<HeaderText>Cost</HeaderText>
+										<NumberSpin min={1} value={upgrade.cost} onChange={value => setUpgradeCost(upgradeIndex, value)} />
+										<HeaderText
+											extra={
+												<Button type='text' icon={<PlusOutlined />} onClick={() => addUpgradeSection(upgradeIndex)} />
+											}
 										>
-											<Space orientation='vertical' style={{ width: '100%' }}>
-												<HeaderText
-													extra={
-														<Button type='text' icon={<PlusOutlined />} onClick={() => addUpgradeSectionContent(upgradeIndex, sectionIndex)} />
-													}
-												>
-													Content
-												</HeaderText>
+											Sections
+										</HeaderText>
+										<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndUpgradeSections(upgradeIndex)}>
+											<SortableContext items={upgrade.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
 												{
-													section.content.map((feature, contentIndex) => (
-														<Expander
-															key={feature.id}
-															title={feature.name}
+													upgrade.sections.map((section, sectionIndex) => (
+														<DraggableExpander
+															key={section.id}
+															id={section.id}
+															title='Section'
 															extra={[
-																<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveUpgradeSectionContent(upgradeIndex, sectionIndex, contentIndex, 'up'); }} />,
-																<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveUpgradeSectionContent(upgradeIndex, sectionIndex, contentIndex, 'down'); }} />,
-																<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteUpgradeSectionContent(upgradeIndex, sectionIndex, contentIndex); }} />
+																<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteUpgradeSection(upgradeIndex, sectionIndex); }} />
 															]}
 														>
-															<FeatureEditPanel
-																feature={feature}
-																allowedTypes={[ FeatureType.Text, FeatureType.Ability ]}
-																sourcebooks={props.sourcebooks}
-																onChange={f => setUpgradeSectionContentFeature(upgradeIndex, sectionIndex, contentIndex, f as FeatureText | FeatureAbility)}
-															/>
-														</Expander>
+															<Space orientation='vertical' style={{ width: '100%' }}>
+																<HeaderText
+																	extra={
+																		<Button type='text' icon={<PlusOutlined />} onClick={() => addUpgradeSectionContent(upgradeIndex, sectionIndex)} />
+																	}
+																>
+																	Content
+																</HeaderText>
+																<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndUpgradeSectionContent(upgradeIndex, sectionIndex)}>
+																	<SortableContext items={section.content.map(f => f.id)} strategy={verticalListSortingStrategy}>
+																		{
+																			section.content.map((feature, contentIndex) => (
+																				<DraggableExpander
+																					key={feature.id}
+																					id={feature.id}
+																					title={feature.name}
+																					extra={[
+																						<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteUpgradeSectionContent(upgradeIndex, sectionIndex, contentIndex); }} />
+																					]}
+																				>
+																					<FeatureEditPanel
+																						feature={feature}
+																						allowedTypes={[ FeatureType.Text, FeatureType.Ability ]}
+																						sourcebooks={props.sourcebooks}
+																						onChange={f => setUpgradeSectionContentFeature(upgradeIndex, sectionIndex, contentIndex, f as FeatureText | FeatureAbility)}
+																					/>
+																				</DraggableExpander>
+																			))
+																		}
+																	</SortableContext>
+																</DndContext>
+																{
+																	section.content.length === 0 ?
+																		<Empty />
+																		: null
+																}
+															</Space>
+														</DraggableExpander>
 													))
 												}
-												{
-													section.content.length === 0 ?
-														<Empty />
-														: null
-												}
-											</Space>
-										</Expander>
-									))
-								}
-								{
-									upgrade.sections.length === 0 ?
-										<Empty />
-										: null
-								}
-							</Space>
-						</Expander>
-					))
-				}
+											</SortableContext>
+										</DndContext>
+										{
+											upgrade.sections.length === 0 ?
+												<Empty />
+												: null
+										}
+									</Space>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					terrain.upgrades.length === 0 ?
 						<Empty />

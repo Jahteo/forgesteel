@@ -1,13 +1,14 @@
 import { Button, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Markdown, MarkdownEditor } from '@/components/controls/markdown/markdown';
 import { Adventure } from '@/models/adventure';
 import { AdventureLogic } from '@/logic/adventure-logic';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { NameDescEditPanel } from '@/components/panels/edit/name-desc-edit/name-desc-edit-panel';
@@ -141,12 +142,17 @@ export const AdventureEditPanel = (props: Props) => {
 			}
 		};
 
-		const moveSection = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(adventure);
-			copy.introduction = Collections.move(copy.introduction, index, direction);
-			setAdventure(copy);
-			if (props.onChange) {
-				props.onChange(copy);
+		const onDragEndSections = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(adventure);
+				const oldIndex = copy.introduction.findIndex(s => s.id === active.id);
+				const newIndex = copy.introduction.findIndex(s => s.id === over.id);
+				copy.introduction = arrayMove(copy.introduction, oldIndex, newIndex);
+				setAdventure(copy);
+				if (props.onChange) {
+					props.onChange(copy);
+				}
 			}
 		};
 
@@ -159,12 +165,17 @@ export const AdventureEditPanel = (props: Props) => {
 			}
 		};
 
-		const movePlotPoint = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(adventure);
-			copy.plot.plots = Collections.move(copy.plot.plots, index, direction);
-			setAdventure(copy);
-			if (props.onChange) {
-				props.onChange(copy);
+		const onDragEndPlotPoints = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(adventure);
+				const oldIndex = copy.plot.plots.findIndex(p => p.id === active.id);
+				const newIndex = copy.plot.plots.findIndex(p => p.id === over.id);
+				copy.plot.plots = arrayMove(copy.plot.plots, oldIndex, newIndex);
+				setAdventure(copy);
+				if (props.onChange) {
+					props.onChange(copy);
+				}
 			}
 		};
 
@@ -204,31 +215,34 @@ export const AdventureEditPanel = (props: Props) => {
 								>
 									Sections
 								</HeaderText>
-								{
-									adventure.introduction.map((section, n) => (
-										<Expander
-											key={section.id}
-											title={section.name || 'Unnamed Section'}
-											extra={[
-												<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveSection(n, 'up'); }} />,
-												<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveSection(n, 'down'); }} />,
-												<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSection(section.id); }} />
-											]}
-										>
-											<HeaderText>Section</HeaderText>
-											<Space orientation='vertical' style={{ width: '100%' }}>
-												<TextInput
-													status={section.name === '' ? 'warning' : ''}
-													placeholder='Name'
-													allowClear={true}
-													value={section.name}
-													onChange={value => setSectionName(n, value)}
-												/>
-												<MarkdownEditor placeholder='Description' value={section.description} onChange={value => setSectionDescription(n, value)} />
-											</Space>
-										</Expander>
-									))
-								}
+								<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndSections}>
+									<SortableContext items={adventure.introduction.map(s => s.id)} strategy={verticalListSortingStrategy}>
+										{
+											adventure.introduction.map((section, n) => (
+												<DraggableExpander
+													key={section.id}
+													id={section.id}
+													title={section.name || 'Unnamed Section'}
+													extra={[
+														<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSection(section.id); }} />
+													]}
+												>
+													<HeaderText>Section</HeaderText>
+													<Space orientation='vertical' style={{ width: '100%' }}>
+														<TextInput
+															status={section.name === '' ? 'warning' : ''}
+															placeholder='Name'
+															allowClear={true}
+															value={section.name}
+															onChange={value => setSectionName(n, value)}
+														/>
+														<MarkdownEditor placeholder='Description' value={section.description} onChange={value => setSectionDescription(n, value)} />
+													</Space>
+												</DraggableExpander>
+											))
+										}
+									</SortableContext>
+								</DndContext>
 								{
 									adventure.introduction.length === 0 ?
 										<Empty />
@@ -249,23 +263,26 @@ export const AdventureEditPanel = (props: Props) => {
 								>
 									Plot Points
 								</HeaderText>
-								{
-									currentPlot.plots.map((p, n) => (
-										<Expander
-											key={p.id}
-											title={p.name || 'Unnamed Plot Point'}
-											extra={[
-												<Button key='edit' type='text' title='Edit' icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setSelectedPlot(p); }} />,
-												<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); movePlotPoint(n, 'up'); }} />,
-												<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); movePlotPoint(n, 'down'); }} />,
-												<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deletePlotPoint(p.id); }} />
-											]}
-										>
-											<HeaderText>{p.name}</HeaderText>
-											<Markdown text={p.description} />
-										</Expander>
-									))
-								}
+								<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndPlotPoints}>
+									<SortableContext items={currentPlot.plots.map(p => p.id)} strategy={verticalListSortingStrategy}>
+										{
+											currentPlot.plots.map(p => (
+												<DraggableExpander
+													key={p.id}
+													id={p.id}
+													title={p.name || 'Unnamed Plot Point'}
+													extra={[
+														<Button key='edit' type='text' title='Edit' icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setSelectedPlot(p); }} />,
+														<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deletePlotPoint(p.id); }} />
+													]}
+												>
+													<HeaderText>{p.name}</HeaderText>
+													<Markdown text={p.description} />
+												</DraggableExpander>
+											))
+										}
+									</SortableContext>
+								</DndContext>
 								{
 									currentPlot.plots.length === 0 ?
 										<Empty />
