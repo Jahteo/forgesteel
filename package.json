@@ -26,6 +26,7 @@
 		"localforage": "^1.10.0",
 		"modern-screenshot": "^4.7.0",
 		"pdf-lib": "^1.17.1",
+		"puppeteer": "^25.0.4",
 		"react": "^19.2.6",
 		"react-dom": "^19.2.6",
 		"react-router": "^7.15.1",
