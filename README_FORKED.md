@@ -11,6 +11,49 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 ## Changes
 
+### Custom grouping and reordering for hero inventory, projects, titles, and features
+
+**PR:** [#3](https://github.com/jahteo/forgesteel/pull/3) — `claude/reorderable-feature-lists-Sn7a8`
+
+Players can now organize the lists they use during play — inventory, projects, titles, and the Features tab — into named, collapsible custom groups, making it easier to find things at the table. Items can be dragged to reorder within a group; groups can be dragged to reorder relative to each other. All customization persists in hero state and is fully backward-compatible with existing saves.
+
+**How to test:**
+1. Run `npx vite --host` and open http://localhost:5173
+2. Load or create a hero, then open the **Inventory** button — confirm each item has a "No group" dropdown; type a new name and click **Create group "…"**
+3. Assign a second item to the same group; drag the group header to reorder groups; click the header to collapse
+4. Open **Projects** and **Titles** and repeat the above
+5. On the **Features** tab, click `···` → set **Organize** to **Custom**; confirm all features show drag handles and group selectors; create a group, assign features, collapse the group, then switch back to Alphabetical — features return to sorted read-only view
+6. Reload the page and confirm groups are still there
+
+**Files changed:**
+- `src/models/hero-state.ts` — `featureCustomization?: { id: string; group?: string }[]` added
+- `src/models/item.ts` — `group?: string` added to `Item`
+- `src/models/project.ts` — `group?: string` added to `Project`
+- `src/models/title.ts` — `group?: string` added to `Title`
+- `src/components/controls/grouped-item-list/grouped-item-list.tsx` — new generic `GroupedItemList<T>` component
+- `src/components/controls/grouped-item-list/grouped-item-list.scss` — styles for group headers, indented items, create-group dropdown row
+- `src/components/panels/hero/features/features-panel.tsx` — Custom organize mode using `GroupedItemList`; standard A-Z/Level/Source modes unchanged
+- `src/components/panels/hero/hero-panel.tsx` — `onChangeHero?` prop added and threaded to `FeaturesPanel`
+- `src/components/pages/heroes/hero-view/hero-view-page.tsx` — `changeHero` prop added and threaded to `HeroPanel`
+- `src/components/main/main.tsx` — `persistHero` passed as `changeHero`
+- `src/components/modals/hero-inventory/hero-inventory-modal.tsx` — uses `GroupedItemList`; feature-granted items shown in a separate read-only section
+- `src/components/modals/hero-projects/hero-projects-modal.tsx` — uses `GroupedItemList`
+- `src/components/modals/hero-titles/hero-titles-modal.tsx` — uses `GroupedItemList`
+
+**Screenshots:**
+
+| Before | After |
+|--------|-------|
+| ![Features before](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/pr-features-before.png) | ![Features custom flat](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/pr-features-custom-flat.png) |
+| ![Inventory before](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/before-level1-crop.png) | ![Inventory grouped](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/pr-after-grouped.png) |
+
+![Features grouped](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/pr-features-grouped.png)
+![Features collapsed](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/pr-features-collapsed.png)
+
+**Upstream PR notes:** The `GroupedItemList` component and the model `group?` fields are generic and clean — good upstream candidates. The `featureCustomization` field in `HeroState` is also appropriate for upstream. The main upstream consideration is whether the upstream maintainer wants grouping in these player-facing lists; worth opening a discussion first before submitting. The sourcebook editors (class builder, etc.) are intentionally unchanged.
+
+---
+
 ### Playwright screenshot tooling + PR screenshot requirements
 
 **PR:** [#3](https://github.com/jahteo/forgesteel/pull/3) — `claude/playwright-screenshots-aThS7`
