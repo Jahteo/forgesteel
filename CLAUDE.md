@@ -99,6 +99,55 @@ Replace `<branch>` with the actual branch name.
 
 ---
 
+## Tracking Changes in README_FORKED.md
+
+**Every PR must add an entry to `README_FORKED.md`** under the `## Changes` section.
+
+This file is the canonical log of everything this fork adds on top of upstream. It helps developers understand what's changed, lets us test changes before submitting them upstream, and gives us the documentation needed when we eventually open upstream PRs.
+
+### What to include in each entry
+
+Use this template for each change:
+
+```markdown
+### <Short title of the change>
+
+**PR:** [#N](https://github.com/jahteo/forgesteel/pull/N) — `branch-name`
+
+<1–3 sentence description of what the change does and why.>
+
+**How to test:**
+1. Run `npx vite --host` and open http://localhost:5173
+2. Navigate to `/<relevant-route>`
+3. <Specific steps to see or verify the change>
+
+**Files changed:**
+- `path/to/file.tsx` — <what changed here>
+
+**Screenshots:** *(UI changes only — link to committed screenshots)*
+
+| Before | After |
+|--------|-------|
+| ![Before](https://raw.githubusercontent.com/jahteo/forgesteel/<branch>/screenshots/before.png) | ![After](https://raw.githubusercontent.com/jahteo/forgesteel/<branch>/screenshots/after.png) |
+
+**Upstream PR notes:** <Is this ready to submit upstream? Any cleanup needed? Upstream issue/discussion link if relevant.>
+```
+
+### Placement
+
+Add new entries **at the top** of the `## Changes` section (newest first).
+
+### What counts as a change
+
+Add an entry for:
+- Any new feature or behaviour change
+- Bug fixes
+- Tooling/infra additions that affect the dev workflow
+
+Skip entries for: trivial typo fixes, screenshot-only commits, and changes that revert themselves within the same PR.
+
+---
+
 ## Development
 
 - **Dev server:** `npx vite --host` (port 5173)

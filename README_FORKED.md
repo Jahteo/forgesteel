@@ -11,6 +11,29 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 ## Changes
 
+### Playwright screenshot tooling + PR screenshot requirements
+
+**PR:** [#3](https://github.com/jahteo/forgesteel/pull/3) — `claude/playwright-screenshots-aThS7`
+
+Adds a Playwright-based screenshot script so any developer or AI agent can capture the app at any route or element from the command line. Also establishes a hard requirement that every UI-touching PR includes before/after screenshots in its description, enforced via a PR template and documented in `CLAUDE.md`.
+
+**How to test:**
+1. Run `npx vite --host` (leave it running)
+2. Take a screenshot: `npm run screenshot -- / screenshots/home.png`
+3. Verify `screenshots/home.png` was created and shows the app
+
+**Files changed:**
+- `scripts/screenshot.ts` — CLI screenshot tool (route, output path, optional CSS selector)
+- `playwright.config.ts` — Playwright config with Chromium auto-detection
+- `package.json` — added `screenshot` script and `@playwright/test` / `tsx` dev deps
+- `CLAUDE.md` — screenshot workflow docs and mandatory PR requirement
+- `.github/pull_request_template.md` — pre-fills new PRs with a before/after screenshot table
+- `screenshots/.gitkeep` — tracks the screenshots directory in git
+
+**Upstream PR notes:** This is fork-specific infrastructure (the CLAUDE.md AI instructions, PR template with our repo URLs). The `playwright.config.ts` and `scripts/screenshot.ts` are generic and could be upstreamed, but are low priority for upstream since they add a dev dependency. Hold for now.
+
+---
+
 ### One-click dead/alive toggle on monster rows
 
 **PR:** [#1](https://github.com/jahteo/forgesteel/pull/1) — `claude/monster-dead-alive-toggle-Qa4Xa`
