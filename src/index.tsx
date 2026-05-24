@@ -42,6 +42,7 @@ root.render(
 										<Main
 											connectionSettings={data.connectionSettings}
 											dataService={data.service}
+											supabaseClient={data.supabaseClient}
 										/>
 									</DataManagerProvider>
 								</HashRouter>

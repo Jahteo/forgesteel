@@ -22,6 +22,8 @@ import { Sourcebook } from '@/models/sourcebook';
 import { SourcebookLogic } from '@/logic/sourcebook-logic';
 import { SourcebookUpdateLogic } from '@/logic/update/sourcebook-update-logic';
 import { StorageServiceFactory } from '@/services/storage/storage-service-factory';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '@/services/supabase-client-factory';
 import localforage from 'localforage';
 import { useIsSmall } from '@/hooks/use-is-small';
 
@@ -30,6 +32,7 @@ import './data-loader.scss';
 export interface LoadedData {
 	connectionSettings: ConnectionSettings;
 	service: DataService;
+	supabaseClient: SupabaseClient | null;
 	heroes: Hero[];
 	homebrewSourcebooks: Sourcebook[];
 	hiddenSourcebookIDs: string[];
@@ -88,6 +91,9 @@ export const DataLoader = (props: Props) => {
 		if (settings.useManualWarehouse) {
 			source = 'Warehouse';
 		}
+		if (settings.useSupabase && settings.supabaseUrl && settings.supabaseAnonKey) {
+			source = 'Supabase';
+		}
 		if (!source) {
 			source = 'Local';
 		}
@@ -101,8 +107,8 @@ export const DataLoader = (props: Props) => {
 		return settings;
 	};
 
-	async function getDataService(settings: ConnectionSettings) {
-		const storageSvc = StorageServiceFactory.fromConnectionSettings(settings);
+	async function getDataService(settings: ConnectionSettings, supabaseClient: SupabaseClient | null) {
+		const storageSvc = StorageServiceFactory.fromConnectionSettings(settings, supabaseClient);
 		const service = new DataService(storageSvc);
 		await service.initialize();
 		return service;
@@ -112,11 +118,11 @@ export const DataLoader = (props: Props) => {
 		return localforage
 			.setItem<ConnectionSettings>('forgesteel-connection-settings', connectionSettings)
 			.then(
-				setConnectionSettings,
+				updated => setConnectionSettings(updated),
 				err => {
 					console.error(err);
 				}
-			).then(loadData);// reload data
+			).then(loadData);
 	};
 
 	async function updateLoadingStatus<T>(getterPromise: Promise<T>, setStateFunc: (value: SetStateAction<LoadingStatus>) => void): Promise<T> {
@@ -173,7 +179,8 @@ export const DataLoader = (props: Props) => {
 
 		initializeConnectionSettings().then(settings => {
 			setConnectionSettings(settings);
-			getDataService(settings).then(dataService => {
+			const supabaseClient = getSupabaseClient(settings);
+			getDataService(settings, supabaseClient).then(dataService => {
 				setConnectionSettingsState('success');
 
 				setSourcebookState('pending');
@@ -225,6 +232,7 @@ export const DataLoader = (props: Props) => {
 					props.onComplete({
 						connectionSettings: settings,
 						service: dataService,
+						supabaseClient: supabaseClient,
 						heroes: heroes,
 						homebrewSourcebooks: sourcebooks,
 						hiddenSourcebookIDs: hiddenSourcebookIDs,

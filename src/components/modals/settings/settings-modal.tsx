@@ -1,6 +1,7 @@
 import { Alert, Button, Drawer, Flex, Segmented, Select, Space } from 'antd';
 import { FlagFilled, FlagOutlined, MoonOutlined, SettingOutlined, SunOutlined } from '@ant-design/icons';
 import { useDataManager, useHeroes, useOptions } from '@/contexts/data-context';
+import { Hero } from '@/models/hero';
 import { AbilityData } from '@/data/ability-data';
 import { Collections } from '@/utils/collections';
 import { ConnectionSettings } from '@/models/connection-settings';
@@ -18,6 +19,10 @@ import { NumberSpin } from '@/components/controls/number-spin/number-spin';
 import { Options } from '@/models/options';
 import { PanelWidth } from '@/enums/panel-width';
 import { PatreonConnectPanel } from '@/components/panels/connection-settings/patreon-connect-panel';
+import { SupabaseConnectPanel } from '@/components/panels/connection-settings/supabase-connect-panel';
+import { BackupService } from '@/services/backup/backup-service';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { UserProfile } from '@/models/campaign';
 import { SheetPageSize } from '@/enums/sheet-page-size';
 import { StandardAbilitySelectModal } from '@/components/modals/select/standard-ability-select/standard-ability-select-modal';
 import { TextInput } from '@/components/controls/text-input/text-input';
@@ -32,7 +37,13 @@ import './settings-modal.scss';
 interface Props {
 	connectionSettings: ConnectionSettings;
 	dataService: DataService;
-	setConnectionSettings: (settings: ConnectionSettings) => void
+	setConnectionSettings: (settings: ConnectionSettings) => void;
+	supabaseClient?: SupabaseClient | null;
+	userProfile?: UserProfile | null;
+	backupService?: BackupService | null;
+	onUserProfileChange?: (profile: UserProfile) => void;
+	onLocalHeroSaved?: (hero: Hero) => void;
+	onSignedOut?: () => void;
 	onClose: () => void;
 }
 
@@ -638,6 +649,17 @@ export const SettingsModal = (props: Props) => {
 		return (
 			<Expander title='Connections'>
 				<Space orientation='vertical' style={{ width: '100%' }}>
+					<SupabaseConnectPanel
+						connectionSettings={connectionSettings}
+						supabaseClient={props.supabaseClient ?? null}
+						userProfile={props.userProfile ?? null}
+						localHeroes={heroes}
+						backupService={props.backupService ?? null}
+						onSettingsChange={updateConnectionSettings}
+						onUserProfileChange={profile => props.onUserProfileChange?.(profile)}
+						onLocalHeroSaved={hero => props.onLocalHeroSaved?.(hero)}
+						onSignedOut={() => props.onSignedOut?.()}
+					/>
 					<PatreonConnectPanel
 						connectionSettings={connectionSettings}
 						setConnectionSettings={updateConnectionSettings}

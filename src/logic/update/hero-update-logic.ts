@@ -32,6 +32,10 @@ export class HeroUpdateLogic {
 			hero.folder = '';
 		}
 
+		if (hero.lastModified === undefined) {
+			hero.lastModified = new Date().toISOString();
+		}
+
 		if (hero.sourcebookIDs === undefined) {
 			hero.sourcebookIDs = SourcebookLogic.getSourcebooks()
 				.filter(sb => sb.type === SourcebookType.Official)

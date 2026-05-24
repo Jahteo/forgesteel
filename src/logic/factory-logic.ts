@@ -1015,6 +1015,7 @@ export class FactoryLogic {
 				height: 1,
 				depth: 1
 			},
+			playerMovable: true,
 			content: null
 		};
 	};
@@ -1091,7 +1092,11 @@ export class FactoryLogic {
 			patreonConnected: false,
 			usePatreonWarehouse: false,
 			patreonConnections: [],
-			dataSource: undefined
+			dataSource: undefined,
+			useSupabase: false,
+			supabaseUrl: '',
+			supabaseAnonKey: '',
+			activeCampaignId: ''
 		};
 	};
 

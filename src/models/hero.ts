@@ -25,6 +25,7 @@ export interface Hero {
 	picture: string | null;
 	folder: string;
 	sourcebookIDs: string[];
+	lastModified: string;
 
 	ancestry: Ancestry | null;
 	culture: Culture | null;

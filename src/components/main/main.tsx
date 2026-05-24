@@ -1,6 +1,6 @@
 import { Feature, FeatureCompanion, FeatureRetainer } from '@/models/feature';
-import { Navigate, Route, Routes } from 'react-router';
-import { ReactNode, useState } from 'react';
+import { Navigate, Route, Routes, useNavigate } from 'react-router';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Sourcebook, SourcebookElementKind } from '@/models/sourcebook';
 import { Spin, notification } from 'antd';
 import { useDataManager, useHeroes, useHomebrewSourcebooks, useOptions, useSession } from '@/contexts/data-context';
@@ -92,6 +92,12 @@ import { SourcebookUpdateLogic } from '@/logic/update/sourcebook-update-logic';
 import { SourcebooksModal } from '@/components/modals/sourcebooks/sourcebooks-modal';
 import { StorageServiceFactory } from '@/services/storage/storage-service-factory';
 import { SubClass } from '@/models/subclass';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseRealtimeService } from '@/services/realtime/supabase-realtime-service';
+import { SupabaseService } from '@/services/storage/supabase-service';
+import { CampaignsPage } from '@/components/pages/campaigns/campaigns-page';
+import { LocalBackupService, SupabaseBackupService } from '@/services/backup/backup-service';
+import { UserProfile } from '@/models/campaign';
 import { SummoningInfo } from '@/models/summon';
 import { TacticalMap } from '@/models/tactical-map';
 import { Terrain } from '@/models/terrain';
@@ -110,6 +116,7 @@ import './main.scss';
 interface Props {
 	connectionSettings: ConnectionSettings;
 	dataService: DataService;
+	supabaseClient?: SupabaseClient | null;
 }
 
 export const Main = (props: Props) => {
@@ -129,6 +136,42 @@ export const Main = (props: Props) => {
 	const [ drawer, setDrawer ] = useState<ReactNode>(null);
 	const [ playerView, setPlayerView ] = useState<Window | null>(null);
 	const [ spinning, setSpinning ] = useState(false);
+
+	const [ supabaseClient, setSupabaseClient ] = useState<SupabaseClient | null>(props.supabaseClient ?? null);
+	const [ userProfile, setUserProfile ] = useState<UserProfile | null>(null);
+	const realtimeServiceRef = useRef<SupabaseRealtimeService | null>(null);
+
+	useEffect(() => {
+		const client = supabaseClient;
+		const campaignId = connectionSettings.activeCampaignId;
+		if (!client || !campaignId || !userProfile) {
+			realtimeServiceRef.current?.dispose();
+			realtimeServiceRef.current = null;
+			return;
+		}
+		realtimeServiceRef.current?.dispose();
+		const svc = new SupabaseRealtimeService(client, campaignId, userProfile);
+		realtimeServiceRef.current = svc;
+		svc.subscribeToTokenMoves(move => {
+			const currentSession = session;
+			const mapIndex = currentSession.tacticalMaps.findIndex(m => m.id === move.mapId);
+			if (mapIndex === -1) return;
+			const mapCopy = { ...currentSession.tacticalMaps[mapIndex] };
+			const miniIndex = mapCopy.items.findIndex(i => i.id === move.miniId);
+			if (miniIndex === -1) return;
+			const miniCopy = { ...mapCopy.items[miniIndex], position: move.position };
+			mapCopy.items = [...mapCopy.items];
+			mapCopy.items[miniIndex] = miniCopy;
+			const sessionCopy = { ...currentSession, tacticalMaps: [...currentSession.tacticalMaps] };
+			sessionCopy.tacticalMaps[mapIndex] = mapCopy;
+			persistSession(sessionCopy as import('@/models/session').Session);
+		});
+		return () => {
+			svc.dispose();
+			realtimeServiceRef.current = null;
+		};
+	// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [ supabaseClient, connectionSettings.activeCampaignId, userProfile ]);
 
 	useErrorListener(event => setErrors([ ...errors, event ]));
 
@@ -163,7 +206,9 @@ export const Main = (props: Props) => {
 				});
 			})
 			.then(() => {
-				if (playerView) {
+				if (realtimeServiceRef.current) {
+					realtimeServiceRef.current.publishSession(session);
+				} else if (playerView) {
 					playerView.location.reload();
 				}
 				// Trigger sync when data changes
@@ -200,11 +245,20 @@ export const Main = (props: Props) => {
 			});
 	};
 
-	const persistConnectionSettings = (connectionSettings: ConnectionSettings) => {
+	const persistConnectionSettings = (settings: ConnectionSettings) => {
 		return localforage
-			.setItem<ConnectionSettings>('forgesteel-connection-settings', connectionSettings)
+			.setItem<ConnectionSettings>('forgesteel-connection-settings', settings)
 			.then(
-				setConnectionSettings,
+				saved => {
+					setConnectionSettings(saved);
+					const newClient = settings.useSupabase && settings.supabaseUrl && settings.supabaseAnonKey
+						? supabaseClient
+						: null;
+					const storage = StorageServiceFactory.fromConnectionSettings(settings, newClient);
+					const ds = new DataService(storage);
+					ds.initialize();
+					setDataService(ds);
+				},
 				err => {
 					console.error(err);
 					notify.error({
@@ -213,12 +267,7 @@ export const Main = (props: Props) => {
 						placement: 'top'
 					});
 				}
-			).then(() => {
-				const storage = StorageServiceFactory.fromConnectionSettings(connectionSettings);
-				const ds = new DataService(storage);
-				ds.initialize();
-				setDataService(ds);
-			});
+			);
 	};
 
 	// #endregion
@@ -1431,11 +1480,20 @@ export const Main = (props: Props) => {
 	};
 
 	const showSettings = () => {
+		const backupSvc = supabaseClient
+			? new SupabaseBackupService(supabaseClient)
+			: new LocalBackupService();
 		setDrawer(
 			<SettingsModal
 				connectionSettings={connectionSettings}
 				dataService={dataService}
 				setConnectionSettings={persistConnectionSettings}
+				supabaseClient={supabaseClient}
+				userProfile={userProfile}
+				backupService={backupSvc}
+				onUserProfileChange={setUserProfile}
+				onLocalHeroSaved={hero => persistHero(hero)}
+				onSignedOut={() => setSupabaseClient(null)}
 				onClose={() => setDrawer(null)}
 			/>
 		);
@@ -1991,6 +2049,25 @@ export const Main = (props: Props) => {
 							<ClocktowerPage
 								params={footerParams}
 							/>
+						}
+					/>
+				</Route>
+				<Route path='campaigns'>
+					<Route
+						index={true}
+						element={
+							supabaseClient ? (
+								<CampaignsPage
+									supabaseService={new SupabaseService(supabaseClient)}
+									currentUserId={userProfile?.userId ?? ''}
+									onJoinCampaign={roomCode => {
+										const url = `${window.location.origin}${window.location.pathname}#/session/player?room=${roomCode}`;
+										window.location.href = url;
+									}}
+								/>
+							) : (
+								<Navigate to='/' replace={true} />
+							)
 						}
 					/>
 				</Route>

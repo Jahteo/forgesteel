@@ -69,6 +69,7 @@ export interface MapMini {
 	notes: string;
 	position: MapPosition;
 	dimensions: MapDimensions;
+	playerMovable: boolean;
 	content: {
 		type: 'hero' | 'monster';
 		encounterID: string;

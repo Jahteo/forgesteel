@@ -1,6 +1,6 @@
 import { PatreonConnection } from '@/models/patreon-connection';
 
-export type FSDataSource = 'Local' | 'Patron' | 'Warehouse' | undefined;
+export type FSDataSource = 'Local' | 'Patron' | 'Warehouse' | 'Supabase' | undefined;
 
 export interface ConnectionSettings {
 	useManualWarehouse: boolean;
@@ -10,4 +10,8 @@ export interface ConnectionSettings {
 	usePatreonWarehouse: boolean;
 	patreonConnections: PatreonConnection[];
 	dataSource: FSDataSource;
+	useSupabase: boolean;
+	supabaseUrl: string;
+	supabaseAnonKey: string;
+	activeCampaignId: string;
 }
