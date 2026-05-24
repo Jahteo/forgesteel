@@ -1,14 +1,14 @@
 import { Button, Drawer, Space } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
-import { Collections } from '@/utils/collections';
 import { CreatureLogic } from '@/logic/creature-logic';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
 import { Empty } from '@/components/controls/empty/empty';
 import { Expander } from '@/components/controls/expander/expander';
+import { GroupedItemList } from '@/components/controls/grouped-item-list/grouped-item-list';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
 import { Modal } from '@/components/modals/modal/modal';
 import { PanelMode } from '@/enums/panel-mode';
+import { PlusOutlined } from '@ant-design/icons';
 import { Sourcebook } from '@/models/sourcebook';
 import { SourcebookLogic } from '@/logic/sourcebook-logic';
 import { Title } from '@/models/title';
@@ -43,14 +43,6 @@ export const HeroTitlesModal = (props: Props) => {
 		const copy = Utils.copy(hero);
 		const index = copy.state.titles.findIndex(t => t.id === title.id);
 		copy.state.titles[index] = title;
-		setHero(copy);
-		props.onChange(copy);
-	};
-
-	const moveTitle = (title: Title, direction: 'up' | 'down') => {
-		const copy = Utils.copy(hero);
-		const index = copy.state.titles.findIndex(p => p.id === title.id);
-		copy.state.titles = Collections.move(copy.state.titles, index, direction);
 		setHero(copy);
 		props.onChange(copy);
 	};
@@ -99,31 +91,32 @@ export const HeroTitlesModal = (props: Props) => {
 							</table>
 						</Expander>
 						{
-							hero.state.titles.map(title => (
-								<Expander
-									key={title.id}
-									title={title.name}
-									tags={[ `Echelon ${title.echelon}` ]}
-									extra={[
-										<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveTitle(title, 'up'); }} />,
-										<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveTitle(title, 'down'); }} />,
-										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteTitle(title); }} />
-									]}
-								>
-									<TitlePanel
-										title={title}
-										hero={hero}
-										sourcebooks={props.sourcebooks}
-										mode={PanelMode.Full}
-										onChange={changeTitle}
-									/>
-								</Expander>
-							))
-						}
-						{
 							hero.state.titles.length === 0 ?
 								<Empty text='You have no titles.' />
-								: null
+								:
+								<GroupedItemList
+									items={hero.state.titles}
+									renderTitle={t => t.name}
+									renderTags={t => [ `Echelon ${t.echelon}` ]}
+									renderExtra={t => [
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteTitle(t); }} />
+									]}
+									renderContent={t => (
+										<TitlePanel
+											title={t}
+											hero={hero}
+											sourcebooks={props.sourcebooks}
+											mode={PanelMode.Full}
+											onChange={changeTitle}
+										/>
+									)}
+									onChange={updated => {
+										const copy = Utils.copy(hero);
+										copy.state.titles = updated;
+										setHero(copy);
+										props.onChange(copy);
+									}}
+								/>
 						}
 					</Space>
 					<Drawer open={titlesVisible} onClose={() => setTitlesVisible(false)} closeIcon={null} size={500}>
