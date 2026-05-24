@@ -22,6 +22,7 @@ import { UserProfile } from '@/models/campaign';
 import { getSupabaseClient } from '@/services/supabase-client-factory';
 import { useEffect, useRef, useState } from 'react';
 import { useHeroes, useSession } from '@/contexts/data-context';
+import { useSearchParams } from 'react-router';
 import localforage from 'localforage';
 
 import './session-player-page.scss';
@@ -32,8 +33,7 @@ interface Props {
 }
 
 export const SessionPlayerPage = (props: Props) => {
-	// Check for remote player mode via ?room= URL param
-	const searchParams = new URLSearchParams(window.location.search);
+	const [ searchParams ] = useSearchParams();
 	const roomCode = searchParams.get('room');
 
 	if (roomCode) {
