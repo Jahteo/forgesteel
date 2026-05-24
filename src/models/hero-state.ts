@@ -24,4 +24,5 @@ export interface HeroState {
 	hidden: boolean;
 	encounterState: 'ready' | 'current' | 'finished';
 	defeated: boolean;
+	featureCustomization?: { id: string; group?: string }[];
 }

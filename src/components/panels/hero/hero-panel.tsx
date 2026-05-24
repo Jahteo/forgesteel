@@ -55,6 +55,7 @@ interface Props {
 	onSelectCharacteristic: (characteristic: Characteristic) => void;
 	onSelectFeature: (feature: Feature) => void;
 	onSelectAbility: (ability: Ability) => void;
+	onChangeHero?: (hero: Hero) => void;
 	onShowState: (type: HeroModalType) => void;
 	onShowReference: (page: RulesPage) => void;
 	onAddSquad: (hero: Hero, monster: Monster, count: number) => void;
@@ -178,6 +179,7 @@ export const HeroPanel = (props: Props) => {
 						hero={props.hero}
 						sourcebooks={props.sourcebooks}
 						onSelectFeature={props.onSelectFeature}
+						onChangeHero={props.onChangeHero}
 					/>
 				);
 			case 'Abilities':

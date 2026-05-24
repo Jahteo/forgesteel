@@ -1,4 +1,4 @@
-import { Select, Space, Tag } from 'antd';
+import { Button, Select, Space, Tag } from 'antd';
 import { ButtonGroup } from '@/components/controls/button-group/button-group';
 import { Collections } from '@/utils/collections';
 import { EllipsisOutlined } from '@ant-design/icons';
@@ -6,6 +6,7 @@ import { ErrorBoundary } from '@/components/controls/error-boundary/error-bounda
 import { Feature } from '@/models/feature';
 import { FeaturePanel } from '../../elements/feature-panel/feature-panel';
 import { FeatureType } from '@/enums/feature-type';
+import { GroupedItemList } from '@/components/controls/grouped-item-list/grouped-item-list';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
 import { HeroLogic } from '@/logic/hero-logic';
@@ -21,10 +22,19 @@ import { useState } from 'react';
 
 import './features-panel.scss';
 
+interface FeatureItem {
+	id: string;
+	group?: string;
+	feature: Feature;
+	source: string;
+	level: number | undefined;
+}
+
 interface Props {
 	hero: Hero;
 	sourcebooks: Sourcebook[];
 	onSelectFeature: (feature: Feature) => void;
+	onChangeHero?: (hero: Hero) => void;
 }
 
 export const FeaturesPanel = (props: Props) => {
@@ -33,15 +43,79 @@ export const FeaturesPanel = (props: Props) => {
 	const [ featureAll, setFeatureAll ] = useState<boolean>(false);
 	const options = useOptions();
 
-	const features = HeroLogic.getFeatures(props.hero)
-		.filter(f => {
-			if (featureAll) {
-				const featureTypes = [ FeatureType.Ability, FeatureType.ClassAbility, FeatureType.Companion, FeatureType.Follower, FeatureType.Retainer ];
-				return !featureTypes.includes(f.feature.type);
-			}
+	const excludedTypes = [ FeatureType.Ability, FeatureType.ClassAbility, FeatureType.Companion, FeatureType.Follower, FeatureType.Retainer ];
 
-			const featureTypes = [ FeatureType.Text, FeatureType.HeroicResource, FeatureType.Package ];
-			return featureTypes.includes(f.feature.type);
+	const allNonAbilityFeatures = HeroLogic.getFeatures(props.hero)
+		.filter(f => !excludedTypes.includes(f.feature.type));
+
+	// ── Custom mode ──────────────────────────────────────────────────────────
+	if (featureSort === 'custom') {
+		const customization = props.hero.state.featureCustomization ?? [];
+
+		const customItems: FeatureItem[] = [];
+		customization.forEach(c => {
+			const found = allNonAbilityFeatures.find(f => f.feature.id === c.id);
+			if (found) {
+				customItems.push({ id: c.id, group: c.group, feature: found.feature, source: found.source, level: found.level });
+			}
+		});
+		allNonAbilityFeatures.forEach(f => {
+			if (!customization.find(c => c.id === f.feature.id)) {
+				customItems.push({ id: f.feature.id, group: undefined, feature: f.feature, source: f.source, level: f.level });
+			}
+		});
+
+		const onCustomChange = (updated: FeatureItem[]) => {
+			const copy = Utils.copy(props.hero);
+			copy.state.featureCustomization = updated.map(i => ({ id: i.id, group: i.group }));
+			props.onChangeHero?.(copy);
+		};
+
+		const sortControl = (
+			<Select
+				style={{ minWidth: 140 }}
+				options={[
+					{ label: 'Alphabetical', value: 'az' },
+					{ label: 'Group by level', value: 'lvl' },
+					{ label: 'Group by source', value: 'src' },
+					{ label: 'Custom', value: 'custom' }
+				]}
+				optionRender={o => <div className='ds-text'>{o.label}</div>}
+				value={featureSort}
+				onChange={setFeatureSort}
+			/>
+		);
+
+		return (
+			<ErrorBoundary>
+				<div className='features-section'>
+					<HeaderText extra={sortControl}>Features</HeaderText>
+					<GroupedItemList
+						items={customItems}
+						renderTitle={item => item.feature.name || 'Unnamed Feature'}
+						renderTags={item => options.showSources ? (item.level ? [ `${item.source} (level ${item.level})` ] : [ item.source ]) : []}
+						renderContent={item => (
+							<FeaturePanel
+								feature={item.feature}
+								source={options.showSources ? (item.level ? `${item.source} (level ${item.level})` : item.source) : undefined}
+								hero={props.hero}
+								sourcebooks={props.sourcebooks}
+								mode={PanelMode.Full}
+							/>
+						)}
+						onChange={onCustomChange}
+					/>
+				</div>
+			</ErrorBoundary>
+		);
+	}
+
+	// ── Standard sorted/filtered modes ───────────────────────────────────────
+	const features = allNonAbilityFeatures
+		.filter(f => {
+			if (featureAll) return true;
+			const basicTypes = [ FeatureType.Text, FeatureType.HeroicResource, FeatureType.Package ];
+			return basicTypes.includes(f.feature.type);
 		})
 		.filter(f => Utils.textMatches([ f.feature.name, f.feature.description ], featureSearch))
 		.sort((a, b) => {
@@ -53,7 +127,6 @@ export const FeaturesPanel = (props: Props) => {
 				case 'src':
 					return a.source.localeCompare(b.source) || a.feature.name.localeCompare(b.feature.name);
 			}
-
 			return 0;
 		});
 
@@ -66,7 +139,6 @@ export const FeaturesPanel = (props: Props) => {
 			case 'src':
 				return feature.source || 'Features';
 		}
-
 		return '';
 	};
 
@@ -121,7 +193,8 @@ export const FeaturesPanel = (props: Props) => {
 										options={[
 											{ label: 'Alphabetical', value: 'az' },
 											{ label: 'Group by level', value: 'lvl' },
-											{ label: 'Group by source', value: 'src' }
+											{ label: 'Group by source', value: 'src' },
+											{ label: 'Custom', value: 'custom' }
 										]}
 										optionRender={o => <div className='ds-text'>{o.label}</div>}
 										value={featureSort}
