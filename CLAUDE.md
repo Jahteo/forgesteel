@@ -23,21 +23,21 @@ Leave this running in the background while taking screenshots.
 ### 2. Take a screenshot
 
 ```bash
-npm run screenshot -- <route> <output-file> [css-selector]
+npm run claude-screenshot-for-pr -- <route> <output-file> [css-selector]
 ```
 
 **Examples:**
 
 ```bash
 # Full page at a route
-npm run screenshot -- / screenshots/home.png
-npm run screenshot -- /heroes screenshots/heroes.png
+npm run claude-screenshot-for-pr -- / screenshots/home.png
+npm run claude-screenshot-for-pr -- /heroes screenshots/heroes.png
 
 # Specific CSS element
-npm run screenshot -- /heroes screenshots/hero-card.png ".hero-card"
+npm run claude-screenshot-for-pr -- /heroes screenshots/hero-card.png ".hero-card"
 
 # Full URL
-npm run screenshot -- http://localhost:5173/encounter screenshots/encounter.png
+npm run claude-screenshot-for-pr -- http://localhost:5173/encounter screenshots/encounter.png
 ```
 
 Arguments:
@@ -52,6 +52,58 @@ In other environments, run `npx playwright install chromium` once before using t
 
 ---
 
+## Recording Demo GIFs
+
+Playwright can record a GIF of an interaction to show a feature in action.
+
+### Prerequisites
+
+```bash
+sudo apt-get install ffmpeg
+```
+
+### Record a demo
+
+```bash
+npm run claude-record-demo-for-pr -- <route> <output-file> [css-selectors-to-click...]
+```
+
+**Examples:**
+
+```bash
+# Just navigate and show the page
+npm run claude-record-demo-for-pr -- /heroes screenshots/demo.gif
+
+# Navigate then click elements in sequence
+npm run claude-record-demo-for-pr -- /heroes screenshots/demo.gif ".hero-card" ".btn-edit"
+
+# Full URL
+npm run claude-record-demo-for-pr -- http://localhost:5173/encounter screenshots/demo.gif ".btn-roll"
+```
+
+Arguments:
+- `<route>` – app path or full URL. Defaults to `/`.
+- `<output-file>` – where to save the GIF. Defaults to `screenshots/demo.gif`.
+- `[css-selectors...]` – optional list of CSS selectors to click in sequence.
+
+The script records 1 second of initial page load, 1 second after each click, and 1 second at the end.
+
+### Embed the demo GIF in a PR comment
+
+Commit the GIF to the branch and reference it with a raw GitHub URL:
+
+```
+https://raw.githubusercontent.com/jahteo/forgesteel/<branch>/screenshots/demo.gif
+```
+
+```markdown
+## Demo
+
+![Demo](https://raw.githubusercontent.com/jahteo/forgesteel/<branch>/screenshots/demo.gif)
+```
+
+---
+
 ## Before/After Screenshot Workflow for PRs
 
 Follow this workflow for every PR that changes the UI:
@@ -61,12 +113,12 @@ Follow this workflow for every PR that changes the UI:
 npx vite --host &
 
 # 2. Screenshot BEFORE your changes
-npm run screenshot -- /affected-route screenshots/before.png
+npm run claude-screenshot-for-pr -- /affected-route screenshots/before.png
 
 # 3. Make your code changes
 
 # 4. Screenshot AFTER your changes
-npm run screenshot -- /affected-route screenshots/after.png
+npm run claude-screenshot-for-pr -- /affected-route screenshots/after.png
 
 # 5. Commit screenshots to the branch
 git add screenshots/

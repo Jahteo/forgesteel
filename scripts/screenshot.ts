@@ -1,12 +1,12 @@
 #!/usr/bin/env tsx
 /**
  * Screenshot utility for AI agents and developers.
- * Usage: npm run screenshot -- <route> <output-file> [css-selector]
+ * Usage: npm run claude-screenshot-for-pr -- <route> <output-file> [css-selector]
  *
  * Examples:
- *   npm run screenshot -- / screenshots/home.png
- *   npm run screenshot -- /heroes screenshots/heroes.png
- *   npm run screenshot -- /heroes screenshots/hero-card.png ".hero-card"
+ *   npm run claude-screenshot-for-pr -- / screenshots/home.png
+ *   npm run claude-screenshot-for-pr -- /heroes screenshots/heroes.png
+ *   npm run claude-screenshot-for-pr -- /heroes screenshots/hero-card.png ".hero-card"
  *
  * Requires the dev server to be running: npx vite --host
  */
