@@ -63,6 +63,7 @@ interface Props {
 	showAbility: (ability: Ability, hero: Hero) => void;
 	showHeroState: (hero: Hero, type: HeroModalType) => void;
 	showHeroReference: (hero: Hero, page: RulesPage) => void;
+	changeHero: (hero: Hero) => void;
 	setNotes: (hero: Hero, value: string) => void;
 	onAddSquad: (hero: Hero, monster: Monster, count: number) => void;
 	onRemoveSquad: (hero: Hero, slotID: string) => void;
@@ -90,6 +91,7 @@ export const HeroViewPage = (props: Props) => {
 					<HeroPanel
 						hero={hero}
 						sourcebooks={props.sourcebooks}
+						onChangeHero={props.changeHero}
 						onSelectAncestry={props.showAncestry}
 						onSelectCulture={props.showCulture}
 						onSelectCareer={props.showCareer}

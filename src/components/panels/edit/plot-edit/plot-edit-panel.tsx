@@ -1,5 +1,7 @@
 import { Button, Divider, Drawer, Flex, Popover, Select, Space, Tabs, Upload } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { DownloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { Markdown, MarkdownEditor } from '@/components/controls/markdown/markdown';
 import { Plot, PlotContent, PlotContentImage, PlotContentReference, PlotContentRoll, PlotContentText, PlotLink } from '@/models/plot';
 import { SearchBox, TextInput } from '@/components/controls/text-input/text-input';
@@ -9,10 +11,10 @@ import { AdventureLogic } from '@/logic/adventure-logic';
 import { Characteristic } from '@/enums/characteristic';
 import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { EncounterPanel } from '@/components/panels/elements/encounter-panel/encounter-panel';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { Format } from '@/utils/format';
 import { HeaderText } from '@/components/controls/header-text/header-text';
@@ -142,12 +144,16 @@ export const PlotEditPanel = (props: Props) => {
 	};
 
 	const getContentSection = () => {
-		const moveContent = (content: PlotContent, direction: 'up' | 'down') => {
-			const copy = Utils.copy(plot);
-			const index = copy.content.findIndex(c => c.id === content.id);
-			copy.content = Collections.move(copy.content, index, direction);
-			setPlot(copy);
-			props.onChange(copy);
+		const onDragEndContent = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(plot);
+				const oldIndex = copy.content.findIndex(c => c.id === active.id);
+				const newIndex = copy.content.findIndex(c => c.id === over.id);
+				copy.content = arrayMove(copy.content, oldIndex, newIndex);
+				setPlot(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteContent = (content: PlotContent) => {
@@ -260,6 +266,8 @@ export const PlotEditPanel = (props: Props) => {
 				>
 					Content
 				</HeaderText>
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndContent}>
+					<SortableContext items={plot.content.map(c => c.id)} strategy={verticalListSortingStrategy}>
 				{
 					plot.content.map(c => {
 						let name = 'Content';
@@ -461,21 +469,22 @@ export const PlotEditPanel = (props: Props) => {
 						}
 
 						return content ?
-							<Expander
+							<DraggableExpander
 								key={c.id}
+								id={c.id}
 								title={name}
 								tags={tag ? [ tag ] : []}
 								extra={[
-									<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveContent(c, 'up'); }} />,
-									<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveContent(c, 'down'); }} />,
 									<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteContent(c); }} />
 								]}
 							>
 								{content}
-							</Expander>
+							</DraggableExpander>
 							: null;
 					})
 				}
+					</SortableContext>
+				</DndContext>
 				{
 					plot.content.length === 0 ?
 						<Empty text='No content' />
@@ -496,12 +505,16 @@ export const PlotEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveLink = (link: PlotLink, direction: 'up' | 'down') => {
-			const copy = Utils.copy(plot);
-			const index = copy.links.findIndex(l => l.id === link.id);
-			copy.links = Collections.move(copy.links, index, direction);
-			setPlot(copy);
-			props.onChange(copy);
+		const onDragEndLinks = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(plot);
+				const oldIndex = copy.links.findIndex(l => l.id === active.id);
+				const newIndex = copy.links.findIndex(l => l.id === over.id);
+				copy.links = arrayMove(copy.links, oldIndex, newIndex);
+				setPlot(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteLink = (link: PlotLink) => {
@@ -542,27 +555,30 @@ export const PlotEditPanel = (props: Props) => {
 				>
 					Links
 				</HeaderText>
-				{
-					plot.links.map(l => (
-						<Expander
-							key={l.id}
-							title={parentPlot.plots.find(p => p.id === l.plotID)?.name || 'Unknown Plot Point'}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveLink(l, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveLink(l, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteLink(l); }} />
-							]}
-						>
-							<HeaderText>Label</HeaderText>
-							<TextInput
-								placeholder='Label'
-								allowClear={true}
-								value={l.label}
-								onChange={value => setLinkLabel(l, value)}
-							/>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndLinks}>
+					<SortableContext items={plot.links.map(l => l.id)} strategy={verticalListSortingStrategy}>
+						{
+							plot.links.map(l => (
+								<DraggableExpander
+									key={l.id}
+									id={l.id}
+									title={parentPlot.plots.find(p => p.id === l.plotID)?.name || 'Unknown Plot Point'}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteLink(l); }} />
+									]}
+								>
+									<HeaderText>Label</HeaderText>
+									<TextInput
+										placeholder='Label'
+										allowClear={true}
+										value={l.label}
+										onChange={value => setLinkLabel(l, value)}
+									/>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					plot.links.length === 0 ?
 						<Empty text='No links' />

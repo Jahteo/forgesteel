@@ -1,15 +1,16 @@
 import { Ability, AbilitySectionField, AbilitySectionPackage, AbilitySectionRoll, AbilitySectionText } from '@/models/ability';
 import { Alert, AutoComplete, Button, Popover, Segmented, Select, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { AbilityDistanceType } from '@/enums/ability-distance-type';
 import { AbilityLogic } from '@/logic/ability-logic';
 import { AbilityUsage } from '@/enums/ability-usage';
 import { Characteristic } from '@/enums/characteristic';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
+import { PlusOutlined } from '@ant-design/icons';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { MarkdownEditor } from '@/components/controls/markdown/markdown';
@@ -283,11 +284,14 @@ export const AbilityEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveDistance = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(ability);
-			copy.distance = Collections.move(copy.distance, index, direction);
-			setAbility(copy);
-			props.onChange(copy);
+		const onDragEndDistance = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(ability);
+				copy.distance = arrayMove(copy.distance, Number(active.id), Number(over.id));
+				setAbility(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteDistance = (index: number) => {
@@ -324,15 +328,16 @@ export const AbilityEditPanel = (props: Props) => {
 				>
 					Distance
 				</HeaderText>
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndDistance}>
+				<SortableContext items={(ability.distance || []).map((_, n) => String(n))} strategy={verticalListSortingStrategy}>
 				<Space orientation='vertical' style={{ width: '100%' }}>
 					{
 						(ability.distance || []).map((distance, n) => (
-							<Expander
+							<DraggableExpander
 								key={n}
+								id={String(n)}
 								title={AbilityLogic.getDistance(distance)}
 								extra={[
-									<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveDistance(n, 'up'); }} />,
-									<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveDistance(n, 'down'); }} />,
 									<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteDistance(n); }} />
 								]}
 							>
@@ -396,7 +401,7 @@ export const AbilityEditPanel = (props: Props) => {
 											: null
 									}
 								</Space>
-							</Expander>
+							</DraggableExpander>
 						))
 					}
 					{
@@ -405,6 +410,8 @@ export const AbilityEditPanel = (props: Props) => {
 							: null
 					}
 				</Space>
+				</SortableContext>
+				</DndContext>
 				<HeaderText>Target</HeaderText>
 				<AutoComplete
 					style={{ width: '100%' }}
@@ -452,11 +459,14 @@ export const AbilityEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveSection = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(ability);
-			copy.sections = Collections.move(copy.sections, index, direction);
-			setAbility(copy);
-			props.onChange(copy);
+		const onDragEndSections = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(ability);
+				copy.sections = arrayMove(copy.sections, Number(active.id), Number(over.id));
+				setAbility(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteSection = (index: number) => {
@@ -487,6 +497,8 @@ export const AbilityEditPanel = (props: Props) => {
 				>
 					Sections
 				</HeaderText>
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndSections}>
+				<SortableContext items={(ability.sections || []).map((_, n) => String(n))} strategy={verticalListSortingStrategy}>
 				<Space orientation='vertical' style={{ width: '100%' }}>
 					{
 						(ability.sections || []).map((section, n) => {
@@ -687,21 +699,22 @@ export const AbilityEditPanel = (props: Props) => {
 							};
 
 							return (
-								<Expander
+								<DraggableExpander
 									key={n}
+									id={String(n)}
 									title={getSectionTitle()}
 									extra={[
-										<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveSection(n, 'up'); }} />,
-										<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveSection(n, 'down'); }} />,
 										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSection(n); }} />
 									]}
 								>
 									{getSectionContent()}
-								</Expander>
+								</DraggableExpander>
 							);
 						})
 					}
 				</Space>
+				</SortableContext>
+				</DndContext>
 				{
 					ability.sections.length === 0 ?
 						<Empty />

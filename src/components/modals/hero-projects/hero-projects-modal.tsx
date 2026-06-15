@@ -1,10 +1,8 @@
 import { Button, Divider, Drawer, Space } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
 import { Empty } from '@/components/controls/empty/empty';
-import { Expander } from '@/components/controls/expander/expander';
 import { FactoryLogic } from '@/logic/factory-logic';
+import { GroupedItemList } from '@/components/controls/grouped-item-list/grouped-item-list';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
 import { HeroLogic } from '@/logic/hero-logic';
@@ -12,6 +10,7 @@ import { Item } from '@/models/item';
 import { Modal } from '@/components/modals/modal/modal';
 import { NumberSpin } from '@/components/controls/number-spin/number-spin';
 import { PanelMode } from '@/enums/panel-mode';
+import { PlusOutlined } from '@ant-design/icons';
 import { Project } from '@/models/project';
 import { ProjectLogic } from '@/logic/project-logic';
 import { ProjectPanel } from '@/components/panels/elements/project-panel/project-panel';
@@ -60,14 +59,6 @@ export const HeroProjectsModal = (props: Props) => {
 		props.onChange(copy);
 	};
 
-	const moveProject = (project: Project, direction: 'up' | 'down') => {
-		const copy = Utils.copy(hero);
-		const index = copy.state.projects.findIndex(p => p.id === project.id);
-		copy.state.projects = Collections.move(copy.state.projects, index, direction);
-		setHero(copy);
-		props.onChange(copy);
-	};
-
 	const deleteProject = (project: Project) => {
 		const copy = Utils.copy(hero);
 		copy.state.projects = copy.state.projects.filter(p => p.id !== project.id);
@@ -104,32 +95,33 @@ export const HeroProjectsModal = (props: Props) => {
 						/>
 						<Divider />
 						{
-							hero.state.projects.map(project => (
-								<Expander
-									key={project.id}
-									title={project.name}
-									tags={[ ProjectLogic.getStatus(project) ]}
-									extra={[
-										<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveProject(project, 'up'); }} />,
-										<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveProject(project, 'down'); }} />,
-										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteProject(project); }} />
-									]}
-								>
-									<ProjectPanel
-										project={project}
-										hero={hero}
-										sourcebooks={props.sourcebooks}
-										mode={PanelMode.Full}
-										onChange={changeProject}
-										addItemAndDeleteProject={addItemAndDeleteProject}
-									/>
-								</Expander>
-							))
-						}
-						{
 							hero.state.projects.length === 0 ?
 								<Empty text='You have no projects underway.' />
-								: null
+								:
+								<GroupedItemList
+									items={hero.state.projects}
+									renderTitle={p => p.name}
+									renderTags={p => [ ProjectLogic.getStatus(p) ]}
+									renderExtra={p => [
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteProject(p); }} />
+									]}
+									renderContent={p => (
+										<ProjectPanel
+											project={p}
+											hero={hero}
+											sourcebooks={props.sourcebooks}
+											mode={PanelMode.Full}
+											onChange={changeProject}
+											addItemAndDeleteProject={addItemAndDeleteProject}
+										/>
+									)}
+									onChange={updated => {
+										const copy = Utils.copy(hero);
+										copy.state.projects = updated;
+										setHero(copy);
+										props.onChange(copy);
+									}}
+								/>
 						}
 					</Space>
 					<Drawer open={projectsVisible} onClose={() => setProjectsVisible(false)} closeIcon={null} size={500}>

@@ -1,13 +1,14 @@
 import { Button, Drawer, Flex, Popover, Select, Space, Tabs, Upload } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, CopyOutlined, DownloadOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { CopyOutlined, DownloadOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Feature, FeatureAddOn } from '@/models/feature';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Element } from '@/models/element';
 import { ElementEditPanel } from '@/components/panels/edit/element-edit/element-edit-panel';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { FeatureAddOnType } from '@/enums/feature-addon-type';
 import { FeatureEditPanel } from '@/components/panels/edit/feature-edit/feature-edit-panel';
@@ -125,12 +126,16 @@ export const MonsterGroupEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveInformation = (information: Element, direction: 'up' | 'down') => {
-			const copy = Utils.copy(monsterGroup);
-			const index = copy.information.findIndex(i => i.id === information.id);
-			copy.information = Collections.move(copy.information, index, direction);
-			setMonsterGroup(copy);
-			props.onChange(copy);
+		const onDragEndInformation = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(monsterGroup);
+				const oldIndex = copy.information.findIndex(i => i.id === active.id);
+				const newIndex = copy.information.findIndex(i => i.id === over.id);
+				copy.information = arrayMove(copy.information, oldIndex, newIndex);
+				setMonsterGroup(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteInformation = (information: Element) => {
@@ -149,24 +154,27 @@ export const MonsterGroupEditPanel = (props: Props) => {
 				>
 					Information
 				</HeaderText>
-				{
-					monsterGroup.information.map(i => (
-						<Expander
-							key={i.id}
-							title={i.name || 'Unnamed Information'}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveInformation(i, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveInformation(i, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteInformation(i); }} />
-							]}
-						>
-							<ElementEditPanel
-								element={i}
-								onChange={changeInformation}
-							/>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndInformation}>
+					<SortableContext items={monsterGroup.information.map(i => i.id)} strategy={verticalListSortingStrategy}>
+						{
+							monsterGroup.information.map(i => (
+								<DraggableExpander
+									key={i.id}
+									id={i.id}
+									title={i.name || 'Unnamed Information'}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteInformation(i); }} />
+									]}
+								>
+									<ElementEditPanel
+										element={i}
+										onChange={changeInformation}
+									/>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					monsterGroup.information.length === 0 ?
 						<Empty />
@@ -227,12 +235,16 @@ export const MonsterGroupEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveMonster = (monster: Monster, direction: 'up' | 'down') => {
-			const copy = Utils.copy(monsterGroup);
-			const index = copy.monsters.findIndex(m => m.id === monster.id);
-			copy.monsters = Collections.move(copy.monsters, index, direction);
-			setMonsterGroup(copy);
-			props.onChange(copy);
+		const onDragEndMonsters = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(monsterGroup);
+				const oldIndex = copy.monsters.findIndex(m => m.id === active.id);
+				const newIndex = copy.monsters.findIndex(m => m.id === over.id);
+				copy.monsters = arrayMove(copy.monsters, oldIndex, newIndex);
+				setMonsterGroup(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteMonster = (monster: Monster) => {
@@ -284,26 +296,29 @@ export const MonsterGroupEditPanel = (props: Props) => {
 				>
 					Monsters
 				</HeaderText>
-				{
-					monsterGroup.monsters.map(m => (
-						<Expander
-							key={m.id}
-							title={MonsterLogic.getMonsterName(m, monsterGroup)}
-							extra={[
-								<Button key='edit' type='text' title='Edit' icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setMonsterID(m.id); }} />,
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveMonster(m, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveMonster(m, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteMonster(m); }} />
-							]}
-						>
-							<MonsterPanel
-								monster={m}
-								monsterGroup={monsterGroup}
-								sourcebooks={props.sourcebooks}
-							/>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndMonsters}>
+					<SortableContext items={monsterGroup.monsters.map(m => m.id)} strategy={verticalListSortingStrategy}>
+						{
+							monsterGroup.monsters.map(m => (
+								<DraggableExpander
+									key={m.id}
+									id={m.id}
+									title={MonsterLogic.getMonsterName(m, monsterGroup)}
+									extra={[
+										<Button key='edit' type='text' title='Edit' icon={<EditOutlined />} onClick={e => { e.stopPropagation(); setMonsterID(m.id); }} />,
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteMonster(m); }} />
+									]}
+								>
+									<MonsterPanel
+										monster={m}
+										monsterGroup={monsterGroup}
+										sourcebooks={props.sourcebooks}
+									/>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					monsterGroup.monsters.length === 0 ?
 						<Empty />
@@ -348,12 +363,16 @@ export const MonsterGroupEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveAddOn = (addOn: FeatureAddOn, direction: 'up' | 'down') => {
-			const copy = Utils.copy(monsterGroup);
-			const index = copy.addOns.findIndex(i => i.id === addOn.id);
-			copy.addOns = Collections.move(copy.addOns, index, direction);
-			setMonsterGroup(copy);
-			props.onChange(copy);
+		const onDragEndAddOns = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(monsterGroup);
+				const oldIndex = copy.addOns.findIndex(i => i.id === active.id);
+				const newIndex = copy.addOns.findIndex(i => i.id === over.id);
+				copy.addOns = arrayMove(copy.addOns, oldIndex, newIndex);
+				setMonsterGroup(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteAddOn = (addOn: FeatureAddOn) => {
@@ -372,26 +391,29 @@ export const MonsterGroupEditPanel = (props: Props) => {
 				>
 					Customizations
 				</HeaderText>
-				{
-					monsterGroup.addOns.map(i => (
-						<Expander
-							key={i.id}
-							title={i.name || 'Unnamed Customization'}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveAddOn(i, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveAddOn(i, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteAddOn(i); }} />
-							]}
-						>
-							<FeatureEditPanel
-								feature={i}
-								allowedTypes={[ FeatureType.AddOn ]}
-								sourcebooks={props.sourcebooks}
-								onChange={f => changeAddOn(f as FeatureAddOn)}
-							/>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndAddOns}>
+					<SortableContext items={monsterGroup.addOns.map(i => i.id)} strategy={verticalListSortingStrategy}>
+						{
+							monsterGroup.addOns.map(i => (
+								<DraggableExpander
+									key={i.id}
+									id={i.id}
+									title={i.name || 'Unnamed Customization'}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteAddOn(i); }} />
+									]}
+								>
+									<FeatureEditPanel
+										feature={i}
+										allowedTypes={[ FeatureType.AddOn ]}
+										sourcebooks={props.sourcebooks}
+										onChange={f => changeAddOn(f as FeatureAddOn)}
+									/>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					monsterGroup.addOns.length === 0 ?
 						<Empty />

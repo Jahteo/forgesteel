@@ -1831,6 +1831,7 @@ export const Main = (props: Props) => {
 									showCharacteristic={onSelectCharacteristic}
 									showFeature={onSelectFeature}
 									showAbility={onSelectAbility}
+									changeHero={persistHero}
 									showHeroState={onShowHeroState}
 									showHeroReference={onShowReference}
 									setNotes={setNotes}

@@ -1,6 +1,7 @@
 import { Alert, Button, Divider, Flex, Popover, Select, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, CheckCircleOutlined, CloseCircleOutlined, CopyOutlined, EditFilled, EditOutlined, EllipsisOutlined, FilterFilled, FilterOutlined, InfoCircleOutlined, PlusOutlined, ToolFilled, ToolOutlined } from '@ant-design/icons';
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, useDraggable, useDroppable } from '@dnd-kit/core';
+import { CheckCircleOutlined, CloseCircleOutlined, CopyOutlined, EditFilled, EditOutlined, EllipsisOutlined, FilterFilled, FilterOutlined, InfoCircleOutlined, PlusOutlined, ToolFilled, ToolOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, useDraggable, useDroppable } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Encounter, EncounterGroup, EncounterObjective, TerrainSlot } from '@/models/encounter';
 import { EncounterSlot, EncounterSlotCustomization } from '@/models/encounter-slot';
 import { Fragment, ReactNode, useState } from 'react';
@@ -11,6 +12,7 @@ import { ButtonGroup } from '@/components/controls/button-group/button-group';
 import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
 import { DropdownButton } from '@/components/controls/dropdown-button/dropdown-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Element } from '@/models/element';
 import { ElementEditPanel } from '@/components/panels/edit/element-edit/element-edit-panel';
 import { Empty } from '@/components/controls/empty/empty';
@@ -422,12 +424,16 @@ ${value.victories}`
 			props.onChange(copy);
 		};
 
-		const moveNote = (notes: Element, direction: 'up' | 'down') => {
-			const copy = Utils.copy(encounter);
-			const index = copy.notes.findIndex(i => i.id === notes.id);
-			copy.notes = Collections.move(copy.notes, index, direction);
-			setEncounter(copy);
-			props.onChange(copy);
+		const onDragEndNotes = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(encounter);
+				const oldIndex = copy.notes.findIndex(i => i.id === active.id);
+				const newIndex = copy.notes.findIndex(i => i.id === over.id);
+				copy.notes = arrayMove(copy.notes, oldIndex, newIndex);
+				setEncounter(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteNote = (notes: Element) => {
@@ -472,24 +478,27 @@ ${value.victories}`
 				>
 					Notes
 				</HeaderText>
-				{
-					encounter.notes.map(i => (
-						<Expander
-							key={i.id}
-							title={i.name || 'Unnamed Note'}
-							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveNote(i, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveNote(i, 'down'); }} />,
-								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteNote(i); }} />
-							]}
-						>
-							<ElementEditPanel
-								element={i}
-								onChange={changeNote}
-							/>
-						</Expander>
-					))
-				}
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndNotes}>
+					<SortableContext items={encounter.notes.map(i => i.id)} strategy={verticalListSortingStrategy}>
+						{
+							encounter.notes.map(i => (
+								<DraggableExpander
+									key={i.id}
+									id={i.id}
+									title={i.name || 'Unnamed Note'}
+									extra={[
+										<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteNote(i); }} />
+									]}
+								>
+									<ElementEditPanel
+										element={i}
+										onChange={changeNote}
+									/>
+								</DraggableExpander>
+							))
+						}
+					</SortableContext>
+				</DndContext>
 				{
 					encounter.notes.length === 0 ?
 						<Empty />

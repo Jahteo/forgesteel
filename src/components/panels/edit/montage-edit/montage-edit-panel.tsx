@@ -1,12 +1,13 @@
 import { Button, Select, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Characteristic } from '@/enums/characteristic';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { EncounterDifficulty } from '@/enums/encounter-difficulty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
+import { PlusOutlined } from '@ant-design/icons';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { MarkdownEditor } from '@/components/controls/markdown/markdown';
@@ -113,11 +114,16 @@ export const MontageEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveSection = (index: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(montage);
-			copy.sections = Collections.move(copy.sections, index, direction);
-			setMontage(copy);
-			props.onChange(copy);
+		const onDragEndSections = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(montage);
+				const oldIndex = copy.sections.findIndex(s => s.id === active.id);
+				const newIndex = copy.sections.findIndex(s => s.id === over.id);
+				copy.sections = arrayMove(copy.sections, oldIndex, newIndex);
+				setMontage(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteSection = (id: string) => {
@@ -193,12 +199,17 @@ export const MontageEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveChallenge = (sectionIndex: number, challengeIndex: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(montage);
-			const s = copy.sections[sectionIndex];
-			s.challenges = Collections.move(s.challenges, challengeIndex, direction);
-			setMontage(copy);
-			props.onChange(copy);
+		const onDragEndChallenges = (sectionIndex: number) => (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(montage);
+				const s = copy.sections[sectionIndex];
+				const oldIndex = s.challenges.findIndex(c => c.id === active.id);
+				const newIndex = s.challenges.findIndex(c => c.id === over.id);
+				s.challenges = arrayMove(s.challenges, oldIndex, newIndex);
+				setMontage(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteChallenge = (sectionIndex: number, id: string) => {
@@ -275,12 +286,17 @@ export const MontageEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveTwist = (sectionIndex: number, twistIndex: number, direction: 'up' | 'down') => {
-			const copy = Utils.copy(montage);
-			const s = copy.sections[sectionIndex];
-			s.twists = Collections.move(s.twists, twistIndex, direction);
-			setMontage(copy);
-			props.onChange(copy);
+		const onDragEndTwists = (sectionIndex: number) => (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(montage);
+				const s = copy.sections[sectionIndex];
+				const oldIndex = s.twists.findIndex(t => t.id === active.id);
+				const newIndex = s.twists.findIndex(t => t.id === over.id);
+				s.twists = arrayMove(s.twists, oldIndex, newIndex);
+				setMontage(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteTwist = (sectionIndex: number, id: string) => {
@@ -300,14 +316,15 @@ export const MontageEditPanel = (props: Props) => {
 				>
 					Sections
 				</HeaderText>
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndSections}>
+					<SortableContext items={montage.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
 				{
 					montage.sections.map((s, sectionIndex) => (
-						<Expander
+						<DraggableExpander
 							key={s.id}
+							id={s.id}
 							title={s.name || 'Section'}
 							extra={[
-								<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveSection(sectionIndex, 'up'); }} />,
-								<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveSection(sectionIndex, 'down'); }} />,
 								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteSection(s.id); }} />
 							]}
 						>
@@ -337,14 +354,15 @@ export const MontageEditPanel = (props: Props) => {
 												>
 													Challenges
 												</HeaderText>
+												<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndChallenges(sectionIndex)}>
+													<SortableContext items={s.challenges.map(c => c.id)} strategy={verticalListSortingStrategy}>
 												{
 													s.challenges.map((c, challengeIndex) => (
-														<Expander
+														<DraggableExpander
 															key={c.id}
+															id={c.id}
 															title={c.name || 'Challenge'}
 															extra={[
-																<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveChallenge(sectionIndex, challengeIndex, 'up'); }} />,
-																<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveChallenge(sectionIndex, challengeIndex, 'down'); }} />,
 																<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteChallenge(sectionIndex, c.id); }} />
 															]}
 														>
@@ -384,9 +402,11 @@ export const MontageEditPanel = (props: Props) => {
 															/>
 															<HeaderText>Uses</HeaderText>
 															<NumberSpin label='Uses' min={1} value={c.uses} onChange={value => setChallengeUses(sectionIndex, challengeIndex, value)} />
-														</Expander>
+														</DraggableExpander>
 													))
 												}
+													</SortableContext>
+												</DndContext>
 												{
 													s.challenges.length === 0 ?
 														<Empty />
@@ -408,14 +428,15 @@ export const MontageEditPanel = (props: Props) => {
 													Twists
 												</HeaderText>
 												<MarkdownEditor value={s.twistInfo} onChange={value => setSectionTwistInfo(sectionIndex, value)} />
+												<DndContext collisionDetection={closestCenter} onDragEnd={onDragEndTwists(sectionIndex)}>
+													<SortableContext items={s.twists.map(t => t.id)} strategy={verticalListSortingStrategy}>
 												{
 													s.twists.map((t, twistIndex) => (
-														<Expander
+														<DraggableExpander
 															key={t.id}
+															id={t.id}
 															title={t.name || 'Twist'}
 															extra={[
-																<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveTwist(sectionIndex, twistIndex, 'up'); }} />,
-																<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveTwist(sectionIndex, twistIndex, 'down'); }} />,
 																<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteTwist(sectionIndex, t.id); }} />
 															]}
 														>
@@ -458,9 +479,11 @@ export const MontageEditPanel = (props: Props) => {
 															/>
 															<HeaderText>Uses</HeaderText>
 															<NumberSpin label='Uses' min={1} value={t.uses} onChange={value => setTwistUses(sectionIndex, twistIndex, value)} />
-														</Expander>
+														</DraggableExpander>
 													))
 												}
+												</SortableContext>
+												</DndContext>
 												{
 													s.challenges.length === 0 ?
 														<Empty />
@@ -471,9 +494,11 @@ export const MontageEditPanel = (props: Props) => {
 									}
 								]}
 							/>
-						</Expander>
+						</DraggableExpander>
 					))
 				}
+				</SortableContext>
+				</DndContext>
 				{
 					montage.sections.length === 0 ?
 						<Empty />

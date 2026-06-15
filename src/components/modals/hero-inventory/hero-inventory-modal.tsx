@@ -1,10 +1,9 @@
 import { Alert, Button, Drawer, Space } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
 import { Empty } from '@/components/controls/empty/empty';
 import { Expander } from '@/components/controls/expander/expander';
 import { FeatureType } from '@/enums/feature-type';
+import { GroupedItemList } from '@/components/controls/grouped-item-list/grouped-item-list';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
 import { HeroLogic } from '@/logic/hero-logic';
@@ -14,6 +13,7 @@ import { ItemSelectModal } from '@/components/modals/select/item-select/item-sel
 import { ItemType } from '@/enums/item-type';
 import { Modal } from '@/components/modals/modal/modal';
 import { PanelMode } from '@/enums/panel-mode';
+import { PlusOutlined } from '@ant-design/icons';
 import { Sourcebook } from '@/models/sourcebook';
 import { Utils } from '@/utils/utils';
 import { useState } from 'react';
@@ -48,14 +48,6 @@ export const HeroInventoryModal = (props: Props) => {
 		props.onChange(copy);
 	};
 
-	const moveItem = (item: Item, direction: 'up' | 'down') => {
-		const copy = Utils.copy(hero);
-		const index = copy.state.inventory.findIndex(i => i.id === item.id);
-		copy.state.inventory = Collections.move(copy.state.inventory, index, direction);
-		setHero(copy);
-		props.onChange(copy);
-	};
-
 	const deleteItem = (item: Item) => {
 		const copy = Utils.copy(hero);
 		copy.state.inventory = copy.state.inventory.filter(i => i.id !== item.id);
@@ -63,17 +55,14 @@ export const HeroInventoryModal = (props: Props) => {
 		props.onChange(copy);
 	};
 
-	const items = [
-		...hero.state.inventory.map(i => ({ item: i, source: 'inventory' })),
-		...HeroLogic.getFeatures(hero)
-			.map(f => f.feature)
-			.filter(f => f.type === FeatureType.ItemChoice)
-			.flatMap(f => f.data.selected)
-			.map(i => ({ item: i, source: 'feature' }))
-	];
+	const featureItems = HeroLogic.getFeatures(hero)
+		.map(f => f.feature)
+		.filter(f => f.type === FeatureType.ItemChoice)
+		.flatMap(f => f.data.selected);
 
 	let warning = null;
-	if (items.filter(i => [ ItemType.Leveled, ItemType.LeveledArmor, ItemType.LeveledImplement, ItemType.LeveledWeapon ].includes(i.item.type)).length > 3) {
+	const allItems = [ ...hero.state.inventory, ...featureItems ];
+	if (allItems.filter(i => [ ItemType.Leveled, ItemType.LeveledArmor, ItemType.LeveledImplement, ItemType.LeveledWeapon ].includes(i.type)).length > 3) {
 		warning = (
 			<Alert
 				type='warning'
@@ -96,50 +85,52 @@ export const HeroInventoryModal = (props: Props) => {
 							Inventory
 						</HeaderText>
 						{warning}
+						<GroupedItemList
+							items={hero.state.inventory}
+							renderTitle={i => i.count === 1 ? i.name : `${i.name} (x${i.count})`}
+							renderTags={i => [ i.type ]}
+							renderExtra={i => [
+								<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteItem(i); }} />
+							]}
+							renderContent={i => (
+								<ItemPanel
+									item={i}
+									wielder={hero}
+									sourcebooks={props.sourcebooks}
+									mode={PanelMode.Full}
+									onChange={changeItem}
+								/>
+							)}
+							onChange={updated => {
+								const copy = Utils.copy(hero);
+								copy.state.inventory = updated;
+								setHero(copy);
+								props.onChange(copy);
+							}}
+						/>
 						{
-							items.map(i => {
-								switch (i.source) {
-									case 'inventory':
-										return (
-											<Expander
-												key={i.item.id}
-												title={i.item.count === 1 ? i.item.name : `${i.item.name} (x${i.item.count})`}
-												tags={[ i.item.type ]}
-												extra={[
-													<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveItem(i.item, 'up'); }} />,
-													<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveItem(i.item, 'down'); }} />,
-													<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteItem(i.item); }} />
-												]}
-											>
-												<ItemPanel
-													item={i.item}
-													wielder={hero}
-													sourcebooks={props.sourcebooks}
-													mode={PanelMode.Full}
-													onChange={changeItem}
-												/>
-											</Expander>
-										);
-									case 'feature':
-										return (
-											<Expander
-												key={i.item.id}
-												title={i.item.count === 1 ? i.item.name : `${i.item.name} (x${i.item.count})`}
-												tags={[ i.item.type ]}
-											>
-												<ItemPanel
-													item={i.item}
-													wielder={hero}
-													sourcebooks={props.sourcebooks}
-													mode={PanelMode.Full}
-												/>
-											</Expander>
-										);
-								}
-							})
+							featureItems.length > 0 ?
+								<>
+									<HeaderText>From Features</HeaderText>
+									{featureItems.map(i => (
+										<Expander
+											key={i.id}
+											title={i.count === 1 ? i.name : `${i.name} (x${i.count})`}
+											tags={[ i.type ]}
+										>
+											<ItemPanel
+												item={i}
+												wielder={hero}
+												sourcebooks={props.sourcebooks}
+												mode={PanelMode.Full}
+											/>
+										</Expander>
+									))}
+								</>
+								: null
 						}
 						{
-							items.length === 0 ?
+							hero.state.inventory.length === 0 && featureItems.length === 0 ?
 								<Empty text='Your inventory is empty.' />
 								: null
 						}

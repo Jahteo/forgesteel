@@ -30,7 +30,7 @@ import { Title } from '@/models/title';
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface _FeatureData { }
 
-type FeatureOf<Type extends FeatureType, Data extends _FeatureData | null = null> = Element & { type: Type, data: Data };
+type FeatureOf<Type extends FeatureType, Data extends _FeatureData | null = null> = Element & { type: Type, data: Data, group?: string };
 
 export interface FeatureAbilityData extends _FeatureData {
 	ability: Ability;

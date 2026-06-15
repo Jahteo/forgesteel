@@ -1,16 +1,17 @@
 import { Button, Drawer, Space } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
-import { Collections } from '@/utils/collections';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
 import { Feature } from '@/models/feature';
 import { FeatureEditPanel } from '@/components/panels/edit/feature-edit/feature-edit-panel';
 import { FeatureLogic } from '@/logic/feature-logic';
 import { FeatureType } from '@/enums/feature-type';
 import { FeatureTypeSelectModal } from '@/components/modals/select/feature-type-select/feature-type-select-modal';
 import { HeaderText } from '@/components/controls/header-text/header-text';
+import { PlusOutlined } from '@ant-design/icons';
 import { Sourcebook } from '@/models/sourcebook';
 import { Utils } from '@/utils/utils';
 import { useState } from 'react';
@@ -54,12 +55,16 @@ export const FeatureListEditPanel = (props: Props) => {
 		props.onChange(copy);
 	};
 
-	const moveFeature = (feature: Feature, direction: 'up' | 'down') => {
-		let copy = Utils.copy(features);
-		const index = copy.findIndex(f => f.id === feature.id);
-		copy = Collections.move(copy, index, direction);
-		setFeatures(copy);
-		props.onChange(copy);
+	const onDragEnd = (event: DragEndEvent) => {
+		const { active, over } = event;
+		if (over && active.id !== over.id) {
+			const copy = Utils.copy(features);
+			const oldIndex = copy.findIndex(f => f.id === active.id);
+			const newIndex = copy.findIndex(f => f.id === over.id);
+			const reordered = arrayMove(copy, oldIndex, newIndex);
+			setFeatures(reordered);
+			props.onChange(reordered);
+		}
 	};
 
 	const deleteFeature = (feature: Feature) => {
@@ -79,34 +84,37 @@ export const FeatureListEditPanel = (props: Props) => {
 				>
 					{props.title}
 				</HeaderText>
-				<Space orientation='vertical' style={{ width: '100%' }}>
-					{
-						features.map(f => (
-							<Expander
-								key={f.id}
-								title={f.name || 'Unnamed Feature'}
-								tags={[ FeatureLogic.getFeatureTag(f) ]}
-								extra={[
-									<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveFeature(f, 'up'); }} />,
-									<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveFeature(f, 'down'); }} />,
-									<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteFeature(f); }} />
-								]}
-							>
-								<FeatureEditPanel
-									feature={f}
-									allowedTypes={props.allowedTypes}
-									sourcebooks={props.sourcebooks}
-									onChange={feature => changeFeature(feature)}
-								/>
-							</Expander>
-						))
-					}
-					{
-						features.length === 0 ?
-							<Empty />
-							: null
-					}
-				</Space>
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+					<SortableContext items={features.map(f => f.id)} strategy={verticalListSortingStrategy}>
+						<Space orientation='vertical' style={{ width: '100%' }}>
+							{
+								features.map(f => (
+									<DraggableExpander
+										key={f.id}
+										id={f.id}
+										title={f.name || 'Unnamed Feature'}
+										tags={[ FeatureLogic.getFeatureTag(f) ]}
+										extra={[
+											<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteFeature(f); }} />
+										]}
+									>
+										<FeatureEditPanel
+											feature={f}
+											allowedTypes={props.allowedTypes}
+											sourcebooks={props.sourcebooks}
+											onChange={feature => changeFeature(feature)}
+										/>
+									</DraggableExpander>
+								))
+							}
+							{
+								features.length === 0 ?
+									<Empty />
+									: null
+							}
+						</Space>
+					</SortableContext>
+				</DndContext>
 			</div>
 			<Drawer open={typeSelectorVisible} onClose={() => setTypeSelectorVisible(false)} closeIcon={null} size={500}>
 				<FeatureTypeSelectModal

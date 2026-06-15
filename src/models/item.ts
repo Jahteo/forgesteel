@@ -8,6 +8,7 @@ import { KitWeapon } from '@/enums/kit-weapon';
 import { Project } from '@/models/project';
 
 export interface Item extends Element {
+	group?: string;
 	type: ItemType;
 	keywords: (AbilityKeyword | KitArmor | KitWeapon)[];
 	crafting: Project | null;

@@ -1,12 +1,13 @@
 import { Button, Space, Tabs } from 'antd';
-import { CaretDownOutlined, CaretUpOutlined, PlusOutlined } from '@ant-design/icons';
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Ability } from '@/models/ability';
 import { AbilityEditPanel } from '@/components/panels/edit/ability-edit/ability-edit-panel';
-import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { DraggableExpander } from '@/components/controls/draggable-expander/draggable-expander';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
-import { Expander } from '@/components/controls/expander/expander';
+import { PlusOutlined } from '@ant-design/icons';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { Feature } from '@/models/feature';
 import { FeatureListEditPanel } from '@/components/panels/edit/feature-list-edit/feature-list-edit-panel';
@@ -103,12 +104,16 @@ export const SubClassEditPanel = (props: Props) => {
 			props.onChange(copy);
 		};
 
-		const moveAbility = (ability: Ability, direction: 'up' | 'down') => {
-			const copy = Utils.copy(subClass);
-			const index = copy.abilities.findIndex(a => a.id === ability.id);
-			copy.abilities = Collections.move(copy.abilities, index, direction);
-			setSubClass(copy);
-			props.onChange(copy);
+		const onDragEnd = (event: DragEndEvent) => {
+			const { active, over } = event;
+			if (over && active.id !== over.id) {
+				const copy = Utils.copy(subClass);
+				const oldIndex = copy.abilities.findIndex(a => a.id === active.id);
+				const newIndex = copy.abilities.findIndex(a => a.id === over.id);
+				copy.abilities = arrayMove(copy.abilities, oldIndex, newIndex);
+				setSubClass(copy);
+				props.onChange(copy);
+			}
 		};
 
 		const deleteAbility = (ability: Ability) => {
@@ -127,32 +132,35 @@ export const SubClassEditPanel = (props: Props) => {
 				>
 					Abilities
 				</HeaderText>
-				<Space orientation='vertical' style={{ width: '100%' }}>
-					{
-						subClass.abilities.map(a => (
-							<Expander
-								key={a.id}
-								title={a.name || 'Unnamed Ability'}
-								tags={[ a.type.usage ]}
-								extra={[
-									<Button key='up' type='text' title='Move Up' icon={<CaretUpOutlined />} onClick={e => { e.stopPropagation(); moveAbility(a, 'up'); }} />,
-									<Button key='down' type='text' title='Move Down' icon={<CaretDownOutlined />} onClick={e => { e.stopPropagation(); moveAbility(a, 'down'); }} />,
-									<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteAbility(a); }} />
-								]}
-							>
-								<AbilityEditPanel
-									ability={a}
-									onChange={changeAbility}
-								/>
-							</Expander>
-						))
-					}
-					{
-						subClass.abilities.length === 0 ?
-							<Empty />
-							: null
-					}
-				</Space>
+				<DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+					<SortableContext items={subClass.abilities.map(a => a.id)} strategy={verticalListSortingStrategy}>
+						<Space orientation='vertical' style={{ width: '100%' }}>
+							{
+								subClass.abilities.map(a => (
+									<DraggableExpander
+										key={a.id}
+										id={a.id}
+										title={a.name || 'Unnamed Ability'}
+										tags={[ a.type.usage ]}
+										extra={[
+											<DangerButton key='delete' mode='clear' onConfirm={e => { e.stopPropagation(); deleteAbility(a); }} />
+										]}
+									>
+										<AbilityEditPanel
+											ability={a}
+											onChange={changeAbility}
+										/>
+									</DraggableExpander>
+								))
+							}
+							{
+								subClass.abilities.length === 0 ?
+									<Empty />
+									: null
+							}
+						</Space>
+					</SortableContext>
+				</DndContext>
 			</>
 		);
 	};

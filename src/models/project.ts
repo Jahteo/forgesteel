@@ -9,6 +9,7 @@ export interface ProjectProgress {
 }
 
 export interface Project extends Element {
+	group?: string;
 	itemPrerequisites: string;
 	source: string;
 	characteristic: Characteristic[];
