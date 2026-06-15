@@ -52,6 +52,58 @@ In other environments, run `npx playwright install chromium` once before using t
 
 ---
 
+## Recording Demo GIFs
+
+Playwright can record a GIF of an interaction to show a feature in action.
+
+### Prerequisites
+
+```bash
+sudo apt-get install ffmpeg
+```
+
+### Record a demo
+
+```bash
+npm run demo -- <route> <output-file> [css-selectors-to-click...]
+```
+
+**Examples:**
+
+```bash
+# Just navigate and show the page
+npm run demo -- /heroes screenshots/demo.gif
+
+# Navigate then click elements in sequence
+npm run demo -- /heroes screenshots/demo.gif ".hero-card" ".btn-edit"
+
+# Full URL
+npm run demo -- http://localhost:5173/encounter screenshots/demo.gif ".btn-roll"
+```
+
+Arguments:
+- `<route>` – app path or full URL. Defaults to `/`.
+- `<output-file>` – where to save the GIF. Defaults to `screenshots/demo.gif`.
+- `[css-selectors...]` – optional list of CSS selectors to click in sequence.
+
+The script records 1 second of initial page load, 1 second after each click, and 1 second at the end.
+
+### Embed the demo GIF in a PR comment
+
+Commit the GIF to the branch and reference it with a raw GitHub URL:
+
+```
+https://raw.githubusercontent.com/jahteo/forgesteel/<branch>/screenshots/demo.gif
+```
+
+```markdown
+## Demo
+
+![Demo](https://raw.githubusercontent.com/jahteo/forgesteel/<branch>/screenshots/demo.gif)
+```
+
+---
+
 ## Before/After Screenshot Workflow for PRs
 
 Follow this workflow for every PR that changes the UI:
