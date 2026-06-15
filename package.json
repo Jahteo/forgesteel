@@ -13,8 +13,8 @@
 		"test": "vitest",
 		"check": "npm run lint && tsc -p tsconfig.json && vitest run && npm audit",
 		"build": "vite build",
-		"screenshot": "tsx scripts/screenshot.ts",
-		"demo": "tsx scripts/demo.ts"
+		"claude-screenshot-for-pr": "tsx scripts/screenshot.ts",
+		"claude-record-demo-for-pr": "tsx scripts/demo.ts"
 	},
 	"dependencies": {
 		"@ant-design/icons": "^6.2.3",

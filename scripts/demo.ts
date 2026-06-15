@@ -1,12 +1,12 @@
 #!/usr/bin/env tsx
 /**
  * Demo GIF recorder for AI agents and developers.
- * Usage: npm run demo -- <route> <output-file> [css-selectors-to-click...]
+ * Usage: npm run claude-record-demo-for-pr -- <route> <output-file> [css-selectors-to-click...]
  *
  * Examples:
- *   npm run demo -- / screenshots/demo.gif
- *   npm run demo -- /heroes screenshots/demo.gif ".hero-card"
- *   npm run demo -- /heroes screenshots/demo.gif ".hero-card" ".btn-edit"
+ *   npm run claude-record-demo-for-pr -- / screenshots/demo.gif
+ *   npm run claude-record-demo-for-pr -- /heroes screenshots/demo.gif ".hero-card"
+ *   npm run claude-record-demo-for-pr -- /heroes screenshots/demo.gif ".hero-card" ".btn-edit"
  *
  * Requires the dev server to be running: npx vite --host
  * Requires ffmpeg: sudo apt-get install ffmpeg

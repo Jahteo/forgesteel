@@ -23,21 +23,21 @@ Leave this running in the background while taking screenshots.
 ### 2. Take a screenshot
 
 ```bash
-npm run screenshot -- <route> <output-file> [css-selector]
+npm run claude-screenshot-for-pr -- <route> <output-file> [css-selector]
 ```
 
 **Examples:**
 
 ```bash
 # Full page at a route
-npm run screenshot -- / screenshots/home.png
-npm run screenshot -- /heroes screenshots/heroes.png
+npm run claude-screenshot-for-pr -- / screenshots/home.png
+npm run claude-screenshot-for-pr -- /heroes screenshots/heroes.png
 
 # Specific CSS element
-npm run screenshot -- /heroes screenshots/hero-card.png ".hero-card"
+npm run claude-screenshot-for-pr -- /heroes screenshots/hero-card.png ".hero-card"
 
 # Full URL
-npm run screenshot -- http://localhost:5173/encounter screenshots/encounter.png
+npm run claude-screenshot-for-pr -- http://localhost:5173/encounter screenshots/encounter.png
 ```
 
 Arguments:
@@ -65,20 +65,20 @@ sudo apt-get install ffmpeg
 ### Record a demo
 
 ```bash
-npm run demo -- <route> <output-file> [css-selectors-to-click...]
+npm run claude-record-demo-for-pr -- <route> <output-file> [css-selectors-to-click...]
 ```
 
 **Examples:**
 
 ```bash
 # Just navigate and show the page
-npm run demo -- /heroes screenshots/demo.gif
+npm run claude-record-demo-for-pr -- /heroes screenshots/demo.gif
 
 # Navigate then click elements in sequence
-npm run demo -- /heroes screenshots/demo.gif ".hero-card" ".btn-edit"
+npm run claude-record-demo-for-pr -- /heroes screenshots/demo.gif ".hero-card" ".btn-edit"
 
 # Full URL
-npm run demo -- http://localhost:5173/encounter screenshots/demo.gif ".btn-roll"
+npm run claude-record-demo-for-pr -- http://localhost:5173/encounter screenshots/demo.gif ".btn-roll"
 ```
 
 Arguments:
@@ -113,12 +113,12 @@ Follow this workflow for every PR that changes the UI:
 npx vite --host &
 
 # 2. Screenshot BEFORE your changes
-npm run screenshot -- /affected-route screenshots/before.png
+npm run claude-screenshot-for-pr -- /affected-route screenshots/before.png
 
 # 3. Make your code changes
 
 # 4. Screenshot AFTER your changes
-npm run screenshot -- /affected-route screenshots/after.png
+npm run claude-screenshot-for-pr -- /affected-route screenshots/after.png
 
 # 5. Commit screenshots to the branch
 git add screenshots/
