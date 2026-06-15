@@ -1,0 +1,90 @@
+name: Fork — Branch Preview Deploy
+
+# Fork-specific workflow. Not intended for upstream.
+# Deploys non-main branches to /forgesteel/preview/<branch>/ on GitHub Pages.
+# Cleans up the preview subdirectory when the branch is deleted.
+
+on:
+  push:
+    branches-ignore:
+      - main
+  delete:
+
+jobs:
+  preview:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Slugify branch name
+        id: slug
+        run: |
+          SLUG=$(echo "${{ github.ref_name }}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9]/-/g' \
+            | sed 's/-\+/-/g' \
+            | sed 's/^-\|-$//g')
+          echo "slug=$SLUG" >> $GITHUB_OUTPUT
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npx vite build --base=/forgesteel/preview/${{ steps.slug.outputs.slug }}/
+
+      - name: Deploy preview
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          destination_dir: preview/${{ steps.slug.outputs.slug }}
+
+      - name: Summary
+        run: |
+          echo "### Preview deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://jahteo.github.io/forgesteel/preview/${{ steps.slug.outputs.slug }}/" >> $GITHUB_STEP_SUMMARY
+
+  cleanup:
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Slugify branch name
+        id: slug
+        run: |
+          SLUG=$(echo "${{ github.event.ref }}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9]/-/g' \
+            | sed 's/-\+/-/g' \
+            | sed 's/^-\|-$//g')
+          echo "slug=$SLUG" >> $GITHUB_OUTPUT
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Remove preview directory
+        run: |
+          DIR="preview/${{ steps.slug.outputs.slug }}"
+          if [ -d "$DIR" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git rm -rf "$DIR"
+            git commit -m "chore: remove preview for ${{ github.event.ref }}"
+            git push
+          else
+            echo "No preview found at $DIR — nothing to clean up."
+          fi
