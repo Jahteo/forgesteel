@@ -50,6 +50,10 @@ Players can now organize the lists they use during play — inventory, projects,
 ![Features grouped](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/pr-features-grouped.png)
 ![Features collapsed](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/pr-features-collapsed.png)
 
+**Demo:**
+
+![Grouping demo](https://raw.githubusercontent.com/jahteo/forgesteel/claude/reorderable-feature-lists-Sn7a8/docs/screenshots/pr-grouping-demo.gif)
+
 **Upstream PR notes:** The `GroupedItemList` component and the model `group?` fields are generic and clean — good upstream candidates. The `featureCustomization` field in `HeroState` is also appropriate for upstream. The main upstream consideration is whether the upstream maintainer wants grouping in these player-facing lists; worth opening a discussion first before submitting. The sourcebook editors (class builder, etc.) are intentionally unchanged.
 
 ---
