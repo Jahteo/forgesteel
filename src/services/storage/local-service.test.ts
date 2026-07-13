@@ -96,7 +96,7 @@ describe('LocalService', () => {
 				.then(putThenFn)
 				.catch(catchFn);
 
-			expect(putThenFn).toHaveBeenCalledWith(mockHero3);
+			expect(putThenFn).toHaveBeenCalledWith(expect.objectContaining({ id: mockHero3.id }));
 			expect(catchFn).not.toHaveBeenCalled();
 
 			const getThenFn = vi.fn();
@@ -104,7 +104,7 @@ describe('LocalService', () => {
 				.then(getThenFn)
 				.catch(catchFn);
 
-			expect(getThenFn).toHaveBeenCalledWith(mockHero3);
+			expect(getThenFn).toHaveBeenCalledWith(expect.objectContaining({ id: mockHero3.id }));
 			expect(catchFn).not.toHaveBeenCalled();
 		});
 
@@ -114,7 +114,7 @@ describe('LocalService', () => {
 				.then(putThenFn)
 				.catch(catchFn);
 
-			expect(putThenFn).toHaveBeenCalledWith(mockHero3);
+			expect(putThenFn).toHaveBeenCalledWith(expect.objectContaining({ id: mockHero3.id }));
 			expect(catchFn).not.toHaveBeenCalled();
 
 			const getThenFn = vi.fn();
@@ -126,7 +126,7 @@ describe('LocalService', () => {
 			const getResult = getThenFn.mock.lastCall ? getThenFn.mock.lastCall[0] : undefined;
 			expect(getResult).toBeDefined();
 			expect(getResult).toHaveLength(1);
-			expect(getResult).toContainEqual(mockHero3);
+			expect(getResult).toEqual(expect.arrayContaining([ expect.objectContaining({ id: 'test-hero3' }) ]));
 			expect(catchFn).not.toHaveBeenCalled();
 		});
 
@@ -139,7 +139,7 @@ describe('LocalService', () => {
 				.then(putThenFn)
 				.catch(catchFn);
 
-			expect(putThenFn).toHaveBeenCalledWith(mockHero3);
+			expect(putThenFn).toHaveBeenCalledWith(expect.objectContaining({ id: mockHero3.id }));
 			expect(catchFn).not.toHaveBeenCalled();
 
 			const getThenFn = vi.fn();
@@ -153,7 +153,7 @@ describe('LocalService', () => {
 			expect(getResult).toHaveLength(3);
 			expect(getResult).toContainEqual(mockHero1);
 			expect(getResult).toContainEqual(mockHero2);
-			expect(getResult).toContainEqual(mockHero3);
+			expect(getResult).toEqual(expect.arrayContaining([ expect.objectContaining({ id: 'test-hero3' }) ]));
 			expect(catchFn).not.toHaveBeenCalled();
 		});
 
@@ -171,7 +171,7 @@ describe('LocalService', () => {
 				.then(putThenFn)
 				.catch(catchFn);
 
-			expect(putThenFn).toHaveBeenCalledWith(updatedHero1);
+			expect(putThenFn).toHaveBeenCalledWith(expect.objectContaining({ id: 'test-hero1', name: 'new value' }));
 			expect(catchFn).not.toHaveBeenCalled();
 
 			const getThenFn = vi.fn();
@@ -183,7 +183,7 @@ describe('LocalService', () => {
 			const getResult = getThenFn.mock.lastCall ? getThenFn.mock.lastCall[0] : undefined;
 			expect(getResult).toBeDefined();
 			expect(getResult).toHaveLength(2);
-			expect(getResult).toContainEqual(updatedHero1);
+			expect(getResult).toEqual(expect.arrayContaining([ expect.objectContaining({ id: 'test-hero1', name: 'new value' }) ]));
 			expect(getResult).toContainEqual(mockHero2);
 			expect(catchFn).not.toHaveBeenCalled();
 		});

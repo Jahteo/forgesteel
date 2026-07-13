@@ -25,5 +25,21 @@ export class ConnectionSettingsUpdateLogic {
 		if (settings.patreonConnections === undefined) {
 			settings.patreonConnections = [];
 		}
+
+		if (settings.useSupabase === undefined) {
+			settings.useSupabase = false;
+		}
+
+		if (settings.supabaseUrl === undefined) {
+			settings.supabaseUrl = '';
+		}
+
+		if (settings.supabaseAnonKey === undefined) {
+			settings.supabaseAnonKey = '';
+		}
+
+		if (settings.activeCampaignId === undefined) {
+			settings.activeCampaignId = '';
+		}
 	};
 }

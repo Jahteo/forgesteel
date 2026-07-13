@@ -38,21 +38,22 @@ export class LocalService implements StorageService {
 	}
 
 	async putHero(hero: Hero): Promise<Hero> {
+		const updated = { ...hero, lastModified: new Date().toISOString() };
 		const heroes = await localforage.getItem<Hero[]>(DataStorageKeys.Heroes);
 		if (heroes) {
 			const copy = Utils.copy(heroes);
-			if (heroes.some(h => h.id === hero.id)) {
-				const list = copy.map(h => h.id === hero.id ? hero : h);
+			if (heroes.some(h => h.id === updated.id)) {
+				const list = copy.map(h => h.id === updated.id ? updated : h);
 				localforage.setItem<Hero[]>(DataStorageKeys.Heroes, list);
 			} else {
-				copy.push(hero);
+				copy.push(updated);
 				localforage.setItem<Hero[]>(DataStorageKeys.Heroes, copy);
 			}
 		} else {
-			localforage.setItem<Hero[]>(DataStorageKeys.Heroes, [ hero ]);
+			localforage.setItem<Hero[]>(DataStorageKeys.Heroes, [ updated ]);
 		}
 
-		return hero;
+		return updated;
 	}
 
 	async deleteHero(id: string): Promise<void> {

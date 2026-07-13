@@ -1,8 +1,9 @@
-import { BarsOutlined, CloseOutlined, DownloadOutlined, DragOutlined, FileTextOutlined, InfoCircleOutlined, LinkOutlined, RotateRightOutlined } from '@ant-design/icons';
+import { BarsOutlined, CloseOutlined, DownloadOutlined, DragOutlined, FileTextOutlined, InfoCircleOutlined, LinkOutlined, LockOutlined, RotateRightOutlined, UnlockOutlined } from '@ant-design/icons';
 import { Button, ColorPicker, Divider, Drawer, Popover, Segmented, Select, Space, Upload } from 'antd';
 import { HeroToken, MonsterToken } from '@/components/panels/token/token';
+import { CursorState } from '@/models/campaign';
 import { MapBoundaries, MapItem, MapMini, MapPosition, MapTile, MapWall, MapZone, TacticalMap } from '@/models/tactical-map';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useRef, useState } from 'react';
 import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
 import { Empty } from '@/components/controls/empty/empty';
@@ -63,6 +64,10 @@ interface Props {
 	encounters?: Encounter[];
 	sourcebooks: Sourcebook[];
 	mode?: PanelMode;
+	isDirector?: boolean;
+	remoteCursors?: CursorState[];
+	onCursorMove?: (x: number, y: number) => void;
+	onTokenMove?: (miniId: string, mapId: string, position: MapPosition) => void;
 	updateMap?: (map: TacticalMap) => void;
 	updateHero?: (hero: Hero) => void;
 	updateEncounter?: (encounter: Encounter) => void;
@@ -92,6 +97,8 @@ export const TacticalMapPanel = (props: Props) => {
 	const [ selectedMini, setSelectedMini ] = useState<{ type: 'hero' | 'monster', encounterID: string, id: string } | null>(null);
 	const [ selectedHero, setSelectedHero ] = useState<Hero | null>(null);
 	const [ selectedMonster, setSelectedMonster ] = useState<SelectedMonsterInfo | null>(null);
+
+	const mapContainerRef = useRef<HTMLDivElement>(null);
 
 	const zLevel = 0;
 	const size = props.display === 'thumbnail' ? 5 : options.gridSize;
@@ -644,6 +651,27 @@ export const TacticalMapPanel = (props: Props) => {
 	};
 
 	const getBottomToolbar = () => {
+		// Player can move their selected mini if playerMovable is true
+		if (props.display === TacticalMapDisplayType.Player) {
+			const selectedItem = map.items.find(i => i.id === selectedMapItemID);
+			if (selectedItem && selectedItem.type === 'mini' && selectedItem.playerMovable) {
+				const playerMove = (dx: number, dy: number) => {
+					const copy = Utils.copy(selectedItem) as MapMini;
+					copy.position.x += dx;
+					copy.position.y += dy;
+					props.onTokenMove?.(copy.id, map.id, copy.position);
+				};
+				return (
+					<div className='tactical-map-toolbar bottom-toolbar'>
+						<Popover content={<Radial onChange={playerMove} />}>
+							<Button><DragOutlined /></Button>
+						</Popover>
+					</div>
+				);
+			}
+			return null;
+		}
+
 		if (props.display !== TacticalMapDisplayType.DirectorEdit) {
 			return null;
 		}
@@ -1079,6 +1107,20 @@ export const TacticalMapPanel = (props: Props) => {
 								<Button onClick={showMiniInfo}>
 									<InfoCircleOutlined />
 								</Button>
+								{
+									props.isDirector ?
+										<Button
+											title={item.playerMovable ? 'Players can move this token — click to lock' : 'Players cannot move this token — click to unlock'}
+											onClick={() => {
+												const copy = Utils.copy(item) as MapMini;
+												copy.playerMovable = !copy.playerMovable;
+												updateMapItem(copy);
+											}}
+										>
+											{item.playerMovable ? <UnlockOutlined /> : <LockOutlined />}
+										</Button>
+										: null
+								}
 							</>
 							: null
 					}
@@ -1366,7 +1408,10 @@ export const TacticalMapPanel = (props: Props) => {
 						mini={mini}
 						content={content}
 						display={props.display}
-						selectable={(editMode === TacticalMapEditMode.Minis) && !editAdding}
+						selectable={
+						(props.display === TacticalMapDisplayType.Player && mini.playerMovable) ||
+						((editMode === TacticalMapEditMode.Minis) && !editAdding)
+					}
 						selected={selectedMapItemID === mini.id}
 						style={getMapItemStyle(mini.position.x, mini.position.y, mini.dimensions.width, mini.dimensions.height, 'circle', boundaries)}
 						selectMini={mini => setSelectedMapItemID(mini.id)}
@@ -1516,13 +1561,67 @@ export const TacticalMapPanel = (props: Props) => {
 	const widthInPixels = (size * widthInSquares);
 	const heightInPixels = (size * heightInSquares);
 
+	const handleMapMouseMove = (e: React.MouseEvent<HTMLDivElement>, bounds: MapBoundaries) => {
+		if (!props.onCursorMove) return;
+		const rect = e.currentTarget.getBoundingClientRect();
+		const relX = e.clientX - rect.left;
+		const relY = e.clientY - rect.top;
+		const gx = Math.floor(relX / size) + bounds.minX;
+		const gy = Math.floor(relY / size) + bounds.minY;
+		props.onCursorMove(gx, gy);
+	};
+
+	const getCursorOverlay = (bounds: MapBoundaries) => {
+		if (!props.remoteCursors || props.remoteCursors.length === 0) return null;
+		return props.remoteCursors.map(cursor => {
+			if (cursor.cursorX < 0 || cursor.cursorY < 0) return null;
+			const left = (cursor.cursorX - bounds.minX) * size;
+			const top = (cursor.cursorY - bounds.minY) * size;
+			return (
+				<div
+					key={cursor.userId}
+					style={{
+						position: 'absolute',
+						left: `${left}px`,
+						top: `${top}px`,
+						pointerEvents: 'none',
+						zIndex: 1000,
+						transform: 'translate(-50%, -50%)'
+					}}
+				>
+					<div style={{
+						width: 12,
+						height: 12,
+						borderRadius: '50%',
+						background: cursor.color,
+						border: '2px solid white',
+						boxShadow: '0 1px 4px rgba(0,0,0,0.4)'
+					}} />
+					<div style={{
+						background: cursor.color,
+						color: 'white',
+						fontSize: 10,
+						padding: '1px 4px',
+						borderRadius: 3,
+						whiteSpace: 'nowrap',
+						marginTop: 2
+					}}>
+						{cursor.displayName}
+					</div>
+				</div>
+			);
+		});
+	};
+
 	return (
 		<ErrorBoundary>
 			{getTopToolbar()}
 			<div
 				id={SheetFormatter.getPageId('tactical-map', map.id)}
 				className={'tactical-map-panel ' + props.display}
-				style={{ width: widthInPixels + 'px', height: heightInPixels + 'px' }}
+				style={{ width: widthInPixels + 'px', height: heightInPixels + 'px', position: 'relative' }}
+				onMouseMove={e => handleMapMouseMove(e, boundaries)}
+				ref={mapContainerRef}
 			>
 				<div className='grid' onClick={() => setSelectedMapItemID(null)}>
 					{getTiles(boundaries)}
@@ -1533,6 +1632,7 @@ export const TacticalMapPanel = (props: Props) => {
 					{getGrid(boundaries)}
 					{getWallVertices(boundaries)}
 				</div>
+				{getCursorOverlay(boundaries)}
 			</div>
 			{getBottomToolbar()}
 			<Drawer open={!!selectedMonster} onClose={() => setSelectedMonster(null)} closeIcon={null} size={500}>

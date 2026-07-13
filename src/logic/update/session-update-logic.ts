@@ -194,6 +194,15 @@ ${e.objective.victories}`
 						tile.content = { type: 'color', color: 'C8C8C8FF' };
 					}
 				});
+
+			tm.items
+				.filter(item => item.type === 'mini')
+				.forEach(mini => {
+					if ((mini as import('@/models/tactical-map').MapMini).playerMovable === undefined) {
+						(mini as import('@/models/tactical-map').MapMini).playerMovable =
+							(mini as import('@/models/tactical-map').MapMini).content?.type === 'hero';
+					}
+				});
 		});
 	};
 }
