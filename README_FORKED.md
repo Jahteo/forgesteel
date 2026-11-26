@@ -13,7 +13,7 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 ### Sync with upstream (andyaiken/forgesteel `main` @ `3c6b4ab`)
 
-**PR:** *(not yet opened)* — `claude/festive-maxwell-i3mo26`
+**PR:** [#14](https://github.com/jahteo/forgesteel/pull/14) — `claude/festive-maxwell-i3mo26`
 
 Merges 218 upstream commits into the fork. Upstream reworked the encounter group panel and added its own per-monster Defeated/Active/Hidden popover (`…` menu); the fork's one-click dead/alive toggle buttons are kept alongside it as optional `MonsterSlot` props.
 
@@ -26,6 +26,12 @@ Merges 218 upstream commits into the fork. Upstream reworked the encounter group
 - `src/components/panels/encounter-group/encounter-group-panel.tsx` — took upstream layout; re-applied fork's `onToggleDefeated` / `onToggleMinionSlotDefeated` buttons
 - `package.json` / `package-lock.json` — took upstream dependencies; kept fork's `claude-screenshot-for-pr` / `claude-record-demo-for-pr` scripts plus `tsx` and `@playwright/test`; dropped unused `puppeteer`; added `@types/node` (needed by the fork's `vite.config.ts`, previously pulled in transitively)
 - `.gitignore` — kept both sides' entries
+
+**Screenshots:**
+
+| Before | After |
+|--------|-------|
+| ![Before](https://raw.githubusercontent.com/jahteo/forgesteel/claude/festive-maxwell-i3mo26/screenshots/before.png) | ![After](https://raw.githubusercontent.com/jahteo/forgesteel/claude/festive-maxwell-i3mo26/screenshots/after.png) |
 
 **Upstream PR notes:** Fork-only sync; nothing to upstream. Upstream's new popover covers most of what the one-click toggle did — consider whether to keep the toggle or drop it in favour of upstream's UI.
 
