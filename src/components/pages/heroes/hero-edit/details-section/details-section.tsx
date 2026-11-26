@@ -1,18 +1,17 @@
-import { Alert, AutoComplete, Button, Divider, Flex, Space, Upload } from 'antd';
+import { AutoComplete, Button, Flex, Space, Upload } from 'antd';
 import { Collections } from '@/utils/collections';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
 import { DownloadOutlined } from '@ant-design/icons';
-import { Expander } from '@/components/controls/expander/expander';
-import { FactoryLogic } from '@/logic/factory-logic';
-import { FeatureConfigPanel } from '@/components/panels/feature-config-panel/feature-config-panel';
-import { FeatureData } from '@/models/feature';
-import { FeatureType } from '@/enums/feature-type';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
-import { HeroLogic } from '@/logic/hero-logic';
+import { HeroExtensionsPanel } from '@/components/panels/hero-extensions/hero-extensions-panel';
+import { HeroTutorialPanel } from '@/components/panels/hero-tutorial/hero-tutorial-panel';
+import { Info } from '@/components/controls/info/info';
 import { NameSuggestions } from '@/components/panels/name-suggestions/name-suggestions';
+import { SelectablePanel } from '@/components/controls/selectable-panel/selectable-panel';
 import { Sourcebook } from '@/models/sourcebook';
 import { TextInput } from '@/components/controls/text-input/text-input';
+import { TutorialMode } from '@/enums/tutorial-mode';
 import { Utils } from '@/utils/utils';
 import { useHeroes } from '@/contexts/data-context';
 
@@ -24,7 +23,8 @@ interface DetailsSectionProps {
 	setName: (value: string) => void;
 	setPicture: (value: string | null) => void;
 	setFolder: (value: string) => void;
-	setFeatureData: (featureID: string, data: FeatureData) => void;
+	setTutorialMode: (value: TutorialMode) => void;
+	setExtensionIDs: (extensionIDs: string[]) => void;
 }
 
 export const DetailsSection = (props: DetailsSectionProps) => {
@@ -36,121 +36,78 @@ export const DetailsSection = (props: DetailsSectionProps) => {
 
 	return (
 		<div className='hero-edit-content details-section'>
-			<div className='hero-edit-content-column single-column choices' id='details-main'>
-				<HeaderText>Name</HeaderText>
-				<Space.Compact style={{ width: '100%' }}>
-					<TextInput
-						status={props.hero.name === '' ? 'warning' : ''}
-						placeholder='Name'
+			<div className='hero-edit-content-column selected single-column' id='details-main'>
+				<SelectablePanel>
+					<HeaderText>Name</HeaderText>
+					<Space.Compact style={{ width: '100%' }}>
+						<TextInput
+							status={props.hero.name === '' ? 'warning' : ''}
+							placeholder='Name'
+							allowClear={true}
+							value={props.hero.name}
+							onChange={props.setName}
+						/>
+						<NameSuggestions onSelect={props.setName} />
+					</Space.Compact>
+				</SelectablePanel>
+				<SelectablePanel>
+					<HeaderText>Portrait</HeaderText>
+					{
+						props.hero.picture ?
+							<Flex align='center' justify='center' gap={10}>
+								<img className='portrait-edit' src={props.hero.picture} title='Portrait' />
+								<DangerButton mode='clear' onConfirm={() => props.setPicture(null)} />
+							</Flex>
+							:
+							<Upload
+								style={{ width: '100%' }}
+								accept='.png,.webp,.gif,.jpg,.jpeg,.svg'
+								showUploadList={false}
+								beforeUpload={async file => {
+									const reader = new FileReader();
+									reader.onload = async progress => {
+										if (progress.target) {
+											const content = progress.target.result as string;
+											const resized = await Utils.getResizedImage(content);
+											props.setPicture(resized);
+										}
+									};
+									reader.readAsDataURL(file);
+									return false;
+								}}
+							>
+								<Button>
+									<DownloadOutlined />
+									Choose a picture
+								</Button>
+							</Upload>
+					}
+				</SelectablePanel>
+				<SelectablePanel>
+					<HeaderText
+						extra={<Info>You can add your hero to a folder to group it with other heroes.</Info>}
+					>
+						Folder
+					</HeaderText>
+					<AutoComplete
+						options={Collections.distinct(folders, f => f).map(option => ({ value: option, label: option }))}
+						optionRender={o => <div className='ds-text'>{o.data.label}</div>}
+						placeholder='Folder'
 						allowClear={true}
-						value={props.hero.name}
-						onChange={props.setName}
+						showSearch={{ filterOption: true }}
+						value={props.hero.folder}
+						onSelect={props.setFolder}
+						onChange={props.setFolder}
 					/>
-					<NameSuggestions onSelect={props.setName} />
-				</Space.Compact>
-				<HeaderText>Portrait</HeaderText>
-				{
-					props.hero.picture ?
-						<Flex align='center' justify='center' gap={10}>
-							<img className='portrait-edit' src={props.hero.picture} title='Portrait' />
-							<DangerButton mode='clear' onConfirm={() => props.setPicture(null)} />
-						</Flex>
-						:
-						<Upload
-							style={{ width: '100%' }}
-							accept='.png,.webp,.gif,.jpg,.jpeg,.svg'
-							showUploadList={false}
-							beforeUpload={async file => {
-								const reader = new FileReader();
-								reader.onload = async progress => {
-									if (progress.target) {
-										const content = progress.target.result as string;
-										const resized = await Utils.getResizedImage(content);
-										props.setPicture(resized);
-									}
-								};
-								reader.readAsDataURL(file);
-								return false;
-							}}
-						>
-							<Button>
-								<DownloadOutlined />
-								Choose a picture
-							</Button>
-						</Upload>
-				}
-				<HeaderText>Folder</HeaderText>
-				<AutoComplete
-					options={Collections.distinct(folders, f => f).map(option => ({ value: option, label: option }))}
-					optionRender={o => <div className='ds-text'>{o.data.label}</div>}
-					placeholder='Folder'
-					allowClear={true}
-					showSearch={{ filterOption: true }}
-					value={props.hero.folder}
-					onSelect={props.setFolder}
-					onChange={props.setFolder}
+				</SelectablePanel>
+				<SelectablePanel>
+					<HeroTutorialPanel value={props.hero.state.tutorialMode} onChange={props.setTutorialMode} />
+				</SelectablePanel>
+				<HeroExtensionsPanel
+					hero={props.hero}
+					sourcebooks={props.sourcebooks}
+					setExtensionIDs={props.setExtensionIDs}
 				/>
-				<Alert
-					type='info'
-					showIcon={true}
-					title='You can add your hero to a folder to group it with other heroes.'
-				/>
-				<Divider />
-				<Expander title='Language Choices'>
-					{
-						HeroLogic.getFeatures(props.hero)
-							.map(f => f.feature)
-							.filter(f => f.type === FeatureType.LanguageChoice)
-							.map(f => {
-								return FactoryLogic.feature.createLanguageChoice({
-									id: f.id,
-									name: f.name || 'Language',
-									description: `${f.data.options.length > 0 ? `**Skills**: ${f.data.options.join(', ')}` : ''}`,
-									options: [ ...f.data.options ],
-									count: f.data.count,
-									selected: [ ...f.data.selected ]
-								});
-							})
-							.map(f => (
-								<FeatureConfigPanel
-									key={f.id}
-									feature={f}
-									hero={props.hero}
-									sourcebooks={props.sourcebooks}
-									setData={props.setFeatureData}
-								/>
-							))
-					}
-				</Expander>
-				<Expander title='Skill Choices'>
-					{
-						HeroLogic.getFeatures(props.hero)
-							.map(f => f.feature)
-							.filter(f => f.type === FeatureType.SkillChoice)
-							.map(f => {
-								return FactoryLogic.feature.createSkillChoice({
-									id: f.id,
-									name: 'Skill',
-									description: `
-${f.data.options.length > 0 ? `**Skills**: ${f.data.options.join(', ')}` : ''}
-${f.data.listOptions.length > 0 ? `**Lists**: ${f.data.listOptions.map(s => `${s} Skills`).join(', ')}` : ''}`,
-									options: [ ...f.data.options ],
-									listOptions: [ ...f.data.listOptions ],
-									count: f.data.count,
-									selected: [ ...f.data.selected ]
-								});
-							})
-							.map(f => (
-								<FeatureConfigPanel
-									key={f.id}
-									feature={f}
-									hero={props.hero}
-									sourcebooks={props.sourcebooks}
-									setData={props.setFeatureData}
-								/>
-							))
-					}
-				</Expander>
 			</div>
 		</div>
 	);

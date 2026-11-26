@@ -6,7 +6,6 @@ import { AbilityLogic } from '@/logic/ability-logic';
 import { BarChartOutlined } from '@ant-design/icons';
 import { Collections } from '@/utils/collections';
 import { CreatureLogic } from '@/logic/creature-logic';
-import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
 import { Field } from '@/components/controls/field/field';
 import { Hero } from '@/models/hero';
 import { HeroLogic } from '@/logic/hero-logic';
@@ -92,30 +91,22 @@ export const PowerRollPanel = (props: Props) => {
 					isRanged = distance === AbilityDistanceType.Ranged;
 				}
 
-				const dmgKits = HeroLogic
-					.getKitDamageBonuses(props.creature)
-					.filter(dmg => {
-						switch (dmg.type) {
-							case 'melee':
-								return isMelee;
-							case 'ranged':
-								return isRanged;
-						}
-					});
+				const kitBonuses = [
+					isMelee ? HeroLogic.getKitDamageBonus(props.creature, 'melee') : null,
+					isRanged ? HeroLogic.getKitDamageBonus(props.creature, 'ranged') : null
+				].filter(bonus => bonus !== null);
 
-				// Show bonuses from kits if:
-				// * AutoCalc is off
-				// * we have more than 1 bonus
-				// * the ability can be used as melee and ranged
-				// ... because otherwise it should have already been applied
-				const showKitBonuses = !props.autoCalc || (dmgKits.length > 1) || (isMelee && isRanged);
+				// Auto-calculated rolls already include the selected mode's bonus. If the ability
+				// has no selected mode, keep both applicable bonuses visible as a reference.
+				const showKitBonuses = !props.autoCalc || (isMelee && isRanged);
 				if (showKitBonuses) {
-					dmgKits.forEach((bonus, n) => {
+					kitBonuses.forEach((bonus, n) => {
+						const format = (value: number) => value > 0 ? `+${value}` : `${value}`;
 						sections.push(
 							<Field
 								key={`kit-${n}`}
 								label={`${bonus.name}`}
-								value={`+${bonus.tier1} / +${bonus.tier2} / +${bonus.tier3} ${bonus.type} damage`}
+								value={`${format(bonus.tier1)} / ${format(bonus.tier2)} / ${format(bonus.tier3)} ${bonus.type} damage`}
 							/>
 						);
 					});
@@ -180,49 +171,47 @@ export const PowerRollPanel = (props: Props) => {
 	const footer = getFooter();
 
 	return (
-		<ErrorBoundary>
-			<div className='power-roll-panel'>
-				<div className='power-roll-row power-roll-header'>
-					{getHeader()}
-					<Space onClick={e => e.stopPropagation()}>
-						{
-							props.autoCalc && props.ability && (props.ability.distance.length > 1) ?
-								<Segmented
-									options={props.ability.distance.map(d => d.type)}
-									value={distance}
-									onChange={setDistance}
-								/>
-								: null
-						}
-						{
-							props.odds ?
-								<Button
-									type='text'
-									title='Odds'
-									icon={<BarChartOutlined style={showOdds ? { color: 'rgb(22, 119, 255)' } : undefined} />}
-									onClick={() => setShowOdds(!showOdds)}
-								/>
-								: null
-						}
-					</Space>
-				</div>
-				<div className={props.highlightTier === 1 ? 'power-roll-row highlight-row' : 'power-roll-row'}>
-					<div className='tier'>!</div>
-					<div className='effect'><Markdown text={getTier(1, props.powerRoll.tier1)} /></div>
-					{showOdds && props.odds ? <div className='odds'>{props.odds.filter(n => n === 1).length}%</div> : null}
-				</div>
-				<div className={props.highlightTier === 2 ? 'power-roll-row highlight-row' : 'power-roll-row'}>
-					<div className='tier'>@</div>
-					<div className='effect'><Markdown text={getTier(2, props.powerRoll.tier2)} /></div>
-					{showOdds && props.odds ? <div className='odds'>{props.odds.filter(n => n === 2).length}%</div> : null}
-				</div>
-				<div className={props.highlightTier === 3 ? 'power-roll-row highlight-row' : 'power-roll-row'}>
-					<div className='tier'>#</div>
-					<div className='effect'><Markdown text={getTier(3, props.powerRoll.tier3)} /></div>
-					{showOdds && props.odds ? <div className='odds'>{props.odds.filter(n => n === 3).length}%</div> : null}
-				</div>
-				{footer ? <div className='power-roll-row power-roll-footer'>{footer}</div> : null}
+		<div className='power-roll-panel'>
+			<div className='power-roll-row power-roll-header'>
+				{getHeader()}
+				<Space onClick={e => e.stopPropagation()}>
+					{
+						props.autoCalc && props.ability && (props.ability.distance.length > 1) ?
+							<Segmented
+								options={props.ability.distance.map(d => d.type)}
+								value={distance}
+								onChange={setDistance}
+							/>
+							: null
+					}
+					{
+						props.odds ?
+							<Button
+								type='text'
+								title='Odds'
+								icon={<BarChartOutlined style={showOdds ? { color: 'var(--fs-accent)' } : undefined} />}
+								onClick={() => setShowOdds(!showOdds)}
+							/>
+							: null
+					}
+				</Space>
 			</div>
-		</ErrorBoundary>
+			<div className={props.highlightTier === 1 ? 'power-roll-row highlight-row' : 'power-roll-row'}>
+				<div className='tier'>!</div>
+				<div className='effect'><Markdown text={getTier(1, props.powerRoll.tier1)} /></div>
+				{showOdds && props.odds ? <div className='odds'>{props.odds.filter(n => n === 1).length}%</div> : null}
+			</div>
+			<div className={props.highlightTier === 2 ? 'power-roll-row highlight-row' : 'power-roll-row'}>
+				<div className='tier'>@</div>
+				<div className='effect'><Markdown text={getTier(2, props.powerRoll.tier2)} /></div>
+				{showOdds && props.odds ? <div className='odds'>{props.odds.filter(n => n === 2).length}%</div> : null}
+			</div>
+			<div className={props.highlightTier === 3 ? 'power-roll-row highlight-row' : 'power-roll-row'}>
+				<div className='tier'>#</div>
+				<div className='effect'><Markdown text={getTier(3, props.powerRoll.tier3)} /></div>
+				{showOdds && props.odds ? <div className='odds'>{props.odds.filter(n => n === 3).length}%</div> : null}
+			</div>
+			{footer ? <div className='power-roll-row power-roll-footer'>{footer}</div> : null}
+		</div>
 	);
 };

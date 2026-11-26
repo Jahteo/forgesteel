@@ -12,6 +12,7 @@ import { PanelMode } from '@/enums/panel-mode';
 import { SelectablePanel } from '@/components/controls/selectable-panel/selectable-panel';
 import { Sourcebook } from '@/models/sourcebook';
 import { SourcebookLogic } from '@/logic/sourcebook-logic';
+import { TutorialMode } from '@/enums/tutorial-mode';
 import { Utils } from '@/utils/utils';
 import { useIsSmall } from '@/hooks/use-is-small';
 
@@ -63,7 +64,7 @@ export const ComplicationSection = (props: Props) => {
 
 	let choices: ReactNode[] = [];
 	if (props.hero.complication) {
-		choices = FeatureLogic.getFeaturesFromComplication(props.hero.complication, props.hero.class?.level || 1)
+		choices = FeatureLogic.getFeaturesFromComplication(props.hero.complication, props.hero.class?.level || 1, TutorialMode.Complete)
 			.map(f => f.feature)
 			.filter(f => FeatureLogic.isChoice(f))
 			.map(f => (
@@ -110,7 +111,7 @@ export const ComplicationSection = (props: Props) => {
 			}
 			{
 				choices.length > 0 ?
-					<div className='hero-edit-content-column choices' id='complication-choices'>
+					<div className='hero-edit-content-column selected' id='complication-choices'>
 						<HeaderText>Choices</HeaderText>
 						{choices}
 					</div>

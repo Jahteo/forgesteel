@@ -1,14 +1,23 @@
-import { Flex, Space, Tag } from 'antd';
+import { Alert, Button, Flex, Popover, Segmented, Space, Tag } from 'antd';
+import { EllipsisOutlined, HeartFilled, PlusOutlined } from '@ant-design/icons';
 import { Ability } from '@/models/ability';
 import { AbilityLogic } from '@/logic/ability-logic';
 import { AbilityUsage } from '@/enums/ability-usage';
+import { ButtonGroup } from '@/components/controls/button-group/button-group';
+import { Collections } from '@/utils/collections';
+import { ConditionExtractionLogic } from '@/logic/condition-extraction-logic';
 import { ConditionLogic } from '@/logic/condition-logic';
-import { ConditionType } from '@/enums/condition-type';
-import { ControlledMonstersPanel } from '@/components/panels/hero/controlled-monsters/controlled-monsters-panel';
 import { DamageModifierType } from '@/enums/damage-modifier-type';
-import { EncounterSlot } from '@/models/encounter-slot';
-import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
+import { DangerButton } from '@/components/controls/danger-button/danger-button';
+import { Empty } from '@/components/controls/empty/empty';
+import { EncounterSlot } from '@/models/encounter';
+import { Expander } from '@/components/controls/expander/expander';
+import { Feature } from '@/models/feature';
+import { FeatureLogic } from '@/logic/feature-logic';
+import { FeaturePanel } from '../../elements/feature-panel/feature-panel';
+import { FeatureType } from '@/enums/feature-type';
 import { Field } from '@/components/controls/field/field';
+import { Format } from '@/utils/format';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { HealthGauge } from '../../health-gauge/health-gauge';
 import { Hero } from '@/models/hero';
@@ -16,12 +25,20 @@ import { HeroLogic } from '@/logic/hero-logic';
 import { HeroModalType } from '@/enums/hero-modal-type';
 import { Markdown } from '@/components/controls/markdown/markdown';
 import { Monster } from '@/models/monster';
+import { MonsterInfo } from '@/components/panels/token/token';
+import { MonsterLogic } from '@/logic/monster-logic';
+import { MonsterOrganizationType } from '@/enums/monster-organization-type';
 import { Pill } from '@/components/controls/pill/pill';
+import { ResourceGainFrequency } from '@/enums/resource-gain-frequency';
+import { RollModifierMarker } from '@/components/controls/roll-modifier-marker/roll-modifier-marker';
+import { RollModifierPanel } from '../../roll-modifier-panel/roll-modifier-panel';
 import { RulesPage } from '@/enums/rules-page';
 import { Skill } from '@/models/skill';
 import { SkillList } from '@/enums/skill-list';
 import { Sourcebook } from '@/models/sourcebook';
+import { Toggle } from '@/components/controls/toggle/toggle';
 import { useOptions } from '@/contexts/data-context';
+import { useState } from 'react';
 
 import './sidebar-panel.scss';
 
@@ -34,122 +51,153 @@ interface Props {
 	onAddSquad: (hero: Hero, monster: Monster, count: number) => void;
 	onRemoveSquad: (hero: Hero, slotID: string) => void;
 	onAddMonsterToSquad: (hero: Hero, slotID: string) => void;
+	onRemoveMonsterFromSquad: (hero: Hero, slotID: string, monsterID: string) => void;
 	onSelectControlledMonster: (hero: Hero, monster: Monster) => void;
 	onSelectControlledSquad: (hero: Hero, slot: EncounterSlot) => void;
+	onSetControlledMonsterDefeated: (hero: Hero, monster: Monster, value: boolean) => void;
+	onSetControlledMonsterHidden: (hero: Hero, monster: Monster, value: boolean) => void;
 }
 
 export const SidebarPanel = (props: Props) => {
+	const [ page, setPage ] = useState<string>('hero');
 	const options = useOptions();
-	const onShowStats = () => {
-		if (props.onShowState) {
-			props.onShowState(HeroModalType.Resources);
-		}
-	};
-
-	const onShowVitals = () => {
-		if (props.onShowState) {
-			props.onShowState(HeroModalType.Vitals);
-		}
-	};
-
-	const onShowConditions = () => {
-		if (props.onShowReference) {
-			props.onShowReference(RulesPage.Conditions);
-		}
-	};
-
-	const onShowSkills = () => {
-		if (props.onShowReference) {
-			props.onShowReference(RulesPage.Skills);
-		}
-	};
-
-	const onShowLanguages = () => {
-		if (props.onShowReference) {
-			props.onShowReference(RulesPage.Languages);
-		}
-	};
-
-	const conditionImmunities = HeroLogic.getConditionImmunities(props.hero);
-	const damageModifiers = HeroLogic.getDamageModifiers(props.hero);
-	const damageImmunities = damageModifiers.filter(dm => dm.modifierType === DamageModifierType.Immunity);
-	const damageWeaknesses = damageModifiers.filter(dm => dm.modifierType === DamageModifierType.Weakness);
-
-	const abilities = HeroLogic.getAbilities(props.hero, props.sourcebooks, options.shownStandardAbilities);
-	const heroicResources = HeroLogic.getHeroicResources(props.hero);
-	const triggers = abilities.filter(a => a.ability.type.usage === AbilityUsage.Trigger);
-	const languages = HeroLogic.getLanguages(props.hero, props.sourcebooks);
 
 	const useRows = options.singlePage && options.compactView;
 
-	const getTrigger = (ability: Ability) => {
-		const showTarget = ability.type.trigger.toLowerCase().includes('the target');
-		const distance = ability.distance.map(d => AbilityLogic.getDistance(d, ability, props.hero)).join(' or ');
+	const thresholdParts = (feature: Feature): Feature[] => feature.type === FeatureType.Multiple ? [ feature, ...feature.data.features ] : [ feature ];
 
-		return (
-			<div key={ability.id}>
-				{
-					ability.type.trigger ?
-						<Field
-							compact={true}
-							label={ability.name || 'Unnamed Ability'}
-							value={ability.type.trigger}
-						/>
-						: null
-				}
-				{
-					showTarget && distance ?
-						<Field
-							compact={true}
-							label={ability.target !== distance ? 'Distance' : 'Distance / Target'}
-							value={distance}
-						/>
-						: null
-				}
-				{
-					showTarget && ability.target && (ability.target !== distance) ?
-						<Field
-							compact={true}
-							label='Target'
-							value={ability.target}
-						/>
-						: null
-				}
-			</div>
-		);
-	};
+	const companions = HeroLogic.getCompanions(props.hero);
+	const retainers = HeroLogic.getRetainers(props.hero);
+	const summons = HeroLogic.getSummons(props.hero);
+	const showRetinue = (companions.length + retainers.length + summons.length > 0);
 
-	const getSkills = (label: string, skills: Skill[]) => {
-		return skills.length > 0 ?
-			useRows ?
-				<div className='selectable-row clickable' onClick={onShowSkills}>
-					<div>{label}: <b>{skills.map(s => s.name).join(', ')}</b></div>
-				</div>
-				:
-				<div key={label} className='overview-tile clickable' onClick={onShowSkills}>
-					<HeaderText>{label}</HeaderText>
+	const getHeroPage = () => {
+		const onShowStats = () => {
+			if (props.onShowState) {
+				props.onShowState(HeroModalType.Resources);
+			}
+		};
+
+		const onShowVitals = () => {
+			if (props.onShowState) {
+				props.onShowState(HeroModalType.Vitals);
+			}
+		};
+
+		const onShowConditions = () => {
+			if (props.onShowReference) {
+				props.onShowReference(RulesPage.Conditions);
+			}
+		};
+
+		const onShowSkills = () => {
+			if (props.onShowReference) {
+				props.onShowReference(RulesPage.Skills);
+			}
+		};
+
+		const onShowLanguages = () => {
+			if (props.onShowReference) {
+				props.onShowReference(RulesPage.Languages);
+			}
+		};
+
+		const getTrigger = (ability: Ability) => {
+			const showTarget = ability.type.trigger.toLowerCase().includes('the target');
+			const distance = ability.distance.map(d => AbilityLogic.getDistance(d, ability, props.hero)).join(' or ');
+
+			return (
+				<div key={ability.id}>
 					{
-						skills.map(s => (
-							<div key={s.name} className='ds-text'>
-								{s.name} {options.showSkillsInGroups ? null : <Tag variant='outlined'>{s.list}</Tag>}
-							</div>
-						))
+						ability.type.trigger ?
+							<Field
+								compact={true}
+								label={ability.name || 'Unnamed Ability'}
+								value={ability.type.trigger}
+							/>
+							: null
+					}
+					{
+						showTarget && distance ?
+							<Field
+								compact={true}
+								label={ability.target !== distance ? 'Distance' : 'Distance / Target'}
+								value={distance}
+							/>
+							: null
+					}
+					{
+						showTarget && ability.target && (ability.target !== distance) ?
+							<Field
+								compact={true}
+								label='Target'
+								value={ability.target}
+							/>
+							: null
 					}
 				</div>
-			: null;
-	};
+			);
+		};
 
-	let display = 'column';
-	if (options.singlePage) {
-		display = 'grid';
-	}
-	if (useRows) {
-		display = 'list';
-	}
+		const getSkills = (label: string, skills: Skill[], cancelledSkills: Skill[] = []) => {
+			const getSkillModifiers = (skill: Skill) => HeroLogic.getRollModifiersForSkill(props.hero, skill).map(f => f.data.modifier);
 
-	return (
-		<ErrorBoundary>
-			<div className={`hero-sidebar ${display}`}>
+			return (skills.length + cancelledSkills.length) > 0 ?
+				useRows ?
+					<div className='selectable-row clickable' onClick={onShowSkills}>
+						<div>
+							{label}: <b>{skills.map(s => s.name).join(', ')}</b>
+							{
+								cancelledSkills.length > 0 ?
+									<> <b><s>{cancelledSkills.map(s => s.name).join(', ')}</s></b></>
+									: null
+							}
+						</div>
+					</div>
+					:
+					<div key={label} className='overview-tile clickable' onClick={onShowSkills}>
+						<HeaderText>{label}</HeaderText>
+						{
+							skills.map(s => {
+								const rollModifiers = getSkillModifiers(s);
+								return (
+									<div key={s.name} className='ds-text' style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+										{s.name}
+										{rollModifiers.length > 0 ? <RollModifierMarker modifier={rollModifiers[0]} multiple={rollModifiers.length > 1} /> : null}
+										{options.showSkillsInGroups ? null : <Tag variant='outlined'>{s.list}</Tag>}
+									</div>
+								);
+							})
+						}
+						{
+							cancelledSkills.map(s => (
+								<div key={s.name} className='ds-text dimmed-text'>
+									<s>{s.name}</s> {options.showSkillsInGroups ? null : <Tag variant='outlined'>{s.list}</Tag>}
+								</div>
+							))
+						}
+					</div>
+				: null;
+		};
+
+		const inflictedConditions = ConditionExtractionLogic.getConditionsForHero(props.hero, props.sourcebooks);
+		const retinueNames = [ ...companions, ...retainers, ...summons.map(s => s.monster) ].map(m => m.name);
+		const conditionImmunities = HeroLogic.getConditionImmunities(props.hero);
+		const damageModifiers = HeroLogic.getDamageModifiers(props.hero);
+		const damageImmunities = damageModifiers.filter(dm => dm.modifierType === DamageModifierType.Immunity);
+		const damageWeaknesses = damageModifiers.filter(dm => dm.modifierType === DamageModifierType.Weakness);
+
+		const abilities = HeroLogic.getAbilities(props.hero, props.sourcebooks, options.shownStandardAbilities);
+		const heroicResources = HeroLogic.getHeroicResources(props.hero);
+		const surgeGains = HeroLogic.getSurgeGains(props.hero);
+		const triggers = abilities.filter(a => a.ability.type.usage === AbilityUsage.Trigger);
+		const languages = HeroLogic.getLanguages(props.hero, props.sourcebooks);
+		const skills = HeroLogic.getSkills(props.hero, props.sourcebooks);
+		const rollModifiers = HeroLogic.getRollModifiers(props.hero);
+		const cancelledSkills = HeroLogic.getCancelledSkills(props.hero, props.sourcebooks);
+
+		return (
+			<>
 				{
 					HeroLogic.getCombatState(props.hero) === 'dying' ?
 						useRows ?
@@ -172,12 +220,12 @@ export const SidebarPanel = (props: Props) => {
 					props.hero.state.conditions.map(c =>
 						useRows ?
 							<div key={c.id} className='selectable-row warning clickable' onClick={onShowVitals}>
-								<div>Condition: <b>{c.type === ConditionType.Custom ? c.text || 'A custom condition.' : ConditionLogic.getDescription(c.type)}</b></div>
+								<div>Condition: <b>{ConditionLogic.getName(c)}</b></div>
 							</div>
 							:
 							<div key={c.id} className='overview-tile warning clickable' onClick={onShowVitals}>
-								<HeaderText tags={[ c.ends ]}>{c.type}</HeaderText>
-								<Markdown text={c.type === ConditionType.Custom ? c.text || 'A custom condition.' : ConditionLogic.getDescription(c.type)} />
+								<HeaderText tags={[ c.ends ]}>{ConditionLogic.getName(c)}</HeaderText>
+								{ConditionLogic.getText(c) ? <Markdown text={ConditionLogic.getText(c)} /> : null}
 							</div>
 					)
 				}
@@ -221,11 +269,22 @@ export const SidebarPanel = (props: Props) => {
 											</HeaderText>
 											{
 												hr.gains.map((g, n) => (
-													<Flex key={n} align='center' justify='space-between' gap={10}>
-														<div className='ds-text compact-text'>{g.trigger}</div>
-														<Pill>+{g.value}</Pill>
-													</Flex>
+													<div className={g.used ? 'gain used' : 'gain'} key={n}>
+														<div>{g.trigger}</div>
+														<Pill>+{g.value} {g.frequency !== ResourceGainFrequency.AtWill ? g.frequency : null}</Pill>
+													</div>
 												))
+											}
+											{
+												hr.thresholds
+													.filter(t => (hr.value >= t.value) && ((props.hero.class?.level || 1) >= t.level))
+													.flatMap(t => thresholdParts(t.feature))
+													.filter(f => f.type !== FeatureType.SurgeGain)
+													.map(f => f.description ?
+														<div key={f.id} className='ds-text'>
+															{f.description}
+														</div>
+														: null)
 											}
 										</div>
 								)
@@ -233,14 +292,43 @@ export const SidebarPanel = (props: Props) => {
 						</>
 						: null
 				}
-				<ControlledMonstersPanel
-					hero={props.hero}
-					onAddSquad={props.onAddSquad!}
-					onRemoveSquad={props.onRemoveSquad!}
-					onAddMonsterToSquad={props.onAddMonsterToSquad!}
-					onSelectControlledMonster={props.onSelectControlledMonster!}
-					onSelectControlledSquad={props.onSelectControlledSquad!}
-				/>
+				{
+					surgeGains.length > 0 ?
+						useRows ?
+							<div className='selectable-row clickable' onClick={onShowStats}>
+								<div>Surges</div>
+								<div>{props.hero.state.surges}</div>
+							</div>
+							:
+							<div className='overview-tile clickable' onClick={onShowStats}>
+								<HeaderText
+									extra={<div style={{ fontSize: '16px', fontWeight: '600' }}>{props.hero.state.surges}</div>}
+								>
+									Surges
+								</HeaderText>
+								{
+									surgeGains.map(f => (
+										<div className={f.data.used ? 'gain used' : 'gain'} key={f.id}>
+											<div>
+												<div>{f.data.trigger}</div>
+												{
+													f.data.condition ?
+														<div className='gain-condition'>{f.data.condition}</div>
+														: null
+												}
+												{
+													f.description ?
+														<div className='gain-description'>{f.description}</div>
+														: null
+												}
+											</div>
+											<Pill>+{f.data.value} {f.data.frequency !== ResourceGainFrequency.AtWill ? f.data.frequency : null}</Pill>
+										</div>
+									))
+								}
+							</div>
+						: null
+				}
 				{
 					(triggers.length > 0) && !options.singlePage ?
 						useRows ?
@@ -252,6 +340,35 @@ export const SidebarPanel = (props: Props) => {
 								<HeaderText>Triggered Actions</HeaderText>
 								<Space orientation='vertical'>
 									{triggers.map(t => getTrigger(t.ability))}
+								</Space>
+							</div>
+						: null
+				}
+				{
+					inflictedConditions.length > 0 ?
+						useRows ?
+							<div className='selectable-row'>
+								<div>Inflicts: <b>{Collections.distinct(inflictedConditions.map(c => c.name), name => name).join(', ')}</b></div>
+							</div>
+							:
+							<div className='overview-tile'>
+								<HeaderText>Conditions You Inflict</HeaderText>
+								<Space orientation='vertical' style={{ width: '100%' }}>
+									{
+										inflictedConditions.map((c, n) => (
+											<Expander key={n} title={c.name} tags={[ c.ends ]}>
+												<div className='ds-text dimmed-text'>
+													From {c.abilities.join(', ')}{retinueNames.includes(c.owner) ? ` (${c.owner})` : null}
+												</div>
+												<Markdown text={c.rules} />
+												{
+													c.related.length > 0 ?
+														<div className='ds-text dimmed-text'>Related: {c.related.join(', ')}</div>
+														: null
+												}
+											</Expander>
+										))
+									}
 								</Space>
 							</div>
 						: null
@@ -314,11 +431,258 @@ export const SidebarPanel = (props: Props) => {
 				{
 					(options.showSkillsInGroups || false) ?
 						[ SkillList.Crafting, SkillList.Exploration, SkillList.Interpersonal, SkillList.Intrigue, SkillList.Lore, SkillList.Custom ]
-							.map(list => getSkills(`${list} Skills`, HeroLogic.getSkills(props.hero, props.sourcebooks).filter(s => s.list === list)))
+							.map(list => getSkills(`${list} Skills`, skills.filter(s => s.list === list), cancelledSkills.filter(s => s.list === list)))
 						:
-						getSkills('Skills', HeroLogic.getSkills(props.hero, props.sourcebooks))
+						getSkills('Skills', skills, cancelledSkills)
 				}
-			</div>
-		</ErrorBoundary>
+				{
+					rollModifiers.length > 0 ?
+						useRows ?
+							<div className='selectable-row'>
+								<div>Roll Modifiers: <b>{rollModifiers.map(f => `${f.data.modifier}: ${FeatureLogic.getRollModifierScope(f.data)}`).join('; ')}</b></div>
+							</div>
+							:
+							<div className='overview-tile'>
+								<HeaderText>Roll Modifiers</HeaderText>
+								{rollModifiers.map(f => <RollModifierPanel key={f.id} modifier={f} />)}
+							</div>
+						: null
+				}
+			</>
+		);
+	};
+
+	const getRetinuePage = () => {
+		const getSlot = (slot: EncounterSlot) => {
+			const isMinionSlot = slot.monsters.every(m => m.role.organization === MonsterOrganizationType.Minion);
+			const isRetainerSlot = slot.monsters.every(m => m.role.organization === MonsterOrganizationType.Retainer);
+			const isCompanionSlot = !isMinionSlot && !isRetainerSlot;
+
+			const getMinionCountMessage = () => {
+				if (!isMinionSlot) {
+					return null;
+				}
+
+				const minionsExpected = MonsterLogic.getExpectedMinionCount(slot);
+				const minionsAlive = slot.monsters.filter(m => !m.state.defeated).length;
+
+				if (minionsAlive === minionsExpected) {
+					return null;
+				}
+
+				return (
+					<Alert
+						type='warning'
+						showIcon={true}
+						title={`There should be ${minionsExpected} active minions, not ${minionsAlive}.`}
+					/>
+				);
+			};
+
+			const getMonster = (m: Monster) => {
+				const tags: string[] = [];
+				if (m.state.defeated) {
+					tags.push('Defeated');
+				} else {
+					if (![ 'healthy', 'injured' ].includes(MonsterLogic.getCombatState(m))) {
+						tags.push(Format.capitalize(MonsterLogic.getCombatState(m)));
+					}
+					if (m.state.hidden) {
+						tags.push('Hidden');
+					}
+					tags.push(...m.state.conditions.map(c => ConditionLogic.getFullDescription(c)));
+				}
+
+				return (
+					<Flex key={m.id} align='center' gap={5}>
+						<div
+							style={{ flex: '1 1 0' }}
+							className={m.state.defeated ? 'controlled-monster defeated' : 'controlled-monster'}
+							onClick={() => props.onSelectControlledMonster(props.hero, m)}
+						>
+							<Space orientation='vertical' style={{ flex: '1 1 0' }}>
+								<Flex align='center' justify='space-between' gap={5}>
+									<MonsterInfo monster={m} />
+									{
+										!isMinionSlot ?
+											<Flex gap={5}>
+												{MonsterLogic.getStaminaDescription(m)}
+												<HeartFilled style={{ color: 'rgb(200, 0, 0)' }} />
+											</Flex>
+											: null
+									}
+								</Flex>
+								{
+									tags.length > 0 ?
+										<Flex gap={3}>
+											{tags.map((tag, n) => <Tag key={n} variant='outlined'>{tag}</Tag>)}
+										</Flex>
+										: null
+								}
+							</Space>
+						</div>
+						{
+							isMinionSlot ?
+								<Popover
+									trigger='click'
+									content={(
+										<div style={{ width: '200px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+											<Segmented
+												block={true}
+												options={[
+													{ value: true, label: 'Defeated' },
+													{ value: false, label: 'Active' }
+												]}
+												value={m.state.defeated}
+												onChange={value => props.onSetControlledMonsterDefeated(props.hero, m, value)}
+											/>
+											<Toggle label='Hidden' value={m.state.hidden} onChange={value => props.onSetControlledMonsterHidden(props.hero, m, value)} />
+											<DangerButton mode='block' label='Remove From Squad' onConfirm={() => props.onRemoveMonsterFromSquad(props.hero, slot.id, m.id)} />
+										</div>
+									)}
+								>
+									<Button type='text' icon={<EllipsisOutlined />} />
+								</Popover>
+								: null
+						}
+					</Flex>
+				);
+			};
+
+			return (
+				<div key={slot.id} className='overview-tile'>
+					<HeaderText
+						extra={
+							<ButtonGroup
+								buttons={[
+									{ type: 'button', tooltip: 'Add Another', icon: <PlusOutlined />, onClick: () => props.onAddMonsterToSquad(props.hero, slot.id) },
+									{ type: 'danger', onClick: () => props.onRemoveSquad(props.hero, slot.id) }
+								]}
+							/>
+						}
+					>
+						{isMinionSlot ? 'Minion Squad' : ''}
+						{isRetainerSlot ? 'Retainer' : ''}
+						{isCompanionSlot ? 'Companion' : ''}
+					</HeaderText>
+					<Space orientation='vertical' style={{ width: '100%' }}>
+						{
+							isMinionSlot ?
+								<div className='controlled-monster' onClick={() => props.onSelectControlledSquad(props.hero, slot)}>
+									<Flex align='center' justify='space-between' style={{ width: '100%' }}>
+										<b>Squad Stamina</b>
+										<Flex gap={5}>
+											{MonsterLogic.getMinionStaminaDescription(slot)}
+											<HeartFilled style={{ color: 'rgb(200, 0, 0)' }} />
+										</Flex>
+									</Flex>
+								</div>
+								: null
+						}
+						{getMinionCountMessage()}
+						{slot.monsters.map(getMonster)}
+						{slot.monsters.length === 0 ? <div>Empty</div> : null}
+					</Space>
+				</div>
+			);
+		};
+
+		return (
+			<>
+				<Popover
+					trigger='click'
+					content={
+						<Space orientation='vertical' style={{ width: '100%' }}>
+							{
+								companions.map(m => (
+									<Button
+										key={m.id}
+										type='text'
+										block={true}
+										onClick={e => {
+											e.stopPropagation();
+											props.onAddSquad(props.hero, m, 1);
+										}}
+									>
+										Companion: {m.name}
+									</Button>
+								))
+							}
+							{
+								retainers.map(m => (
+									<Button
+										key={m.id}
+										type='text'
+										block={true}
+										onClick={e => {
+											e.stopPropagation();
+											props.onAddSquad(props.hero, m, 1);
+										}}
+									>
+										Retainer: {m.name}
+									</Button>
+								))
+							}
+							{
+								summons.map(m => (
+									<Button
+										key={m.id}
+										type='text'
+										block={true}
+										onClick={e => {
+											e.stopPropagation();
+											props.onAddSquad(props.hero, m.monster, m.info.count);
+										}}
+									>
+										{m.info.count === 1 ? `Summon: ${m.name}` : `Summon: ${m.name} (x${m.info.count})`}
+									</Button>
+								))
+							}
+						</Space>
+					}
+				>
+					<Button block={true}>
+						<PlusOutlined />
+						Track Retinue Stats
+					</Button>
+				</Popover>
+				{props.hero.state.controlledSlots.map(getSlot)}
+				{props.hero.state.controlledSlots.length === 0 ? <Empty /> : null}
+				{
+					HeroLogic.getFeatures(props.hero)
+						.map(f => f.feature)
+						.filter(f => f.type === FeatureType.SummonFormation)
+						.map(f => <FeaturePanel key={f.id} feature={f} hero={props.hero} sourcebooks={props.sourcebooks} />)
+				}
+			</>
+		);
+	};
+
+	let display = 'column';
+	if (options.singlePage) {
+		display = 'grid';
+	}
+	if (useRows) {
+		display = 'list';
+	}
+
+	return (
+		<div className={`hero-sidebar ${display}`}>
+			{
+				showRetinue ?
+					<Segmented
+						block={true}
+						options={[
+							{ label: 'You', value: 'hero' },
+							{ label: 'Retinue', value: 'retinue' }
+						]}
+						value={page}
+						onChange={setPage}
+					/>
+					: null
+			}
+			{page === 'hero' ? getHeroPage() : null}
+			{page === 'retinue' ? getRetinuePage() : null}
+		</div>
 	);
 };

@@ -1,4 +1,4 @@
-import { Button, Drawer, Flex, Select, Space } from 'antd';
+import { Button, Drawer, Flex, Segmented, Select, Space } from 'antd';
 import { Feature, FeatureSkillChoiceData } from '@/models/feature';
 import { Collections } from '@/utils/collections';
 import { FeatureType } from '@/enums/feature-type';
@@ -29,19 +29,7 @@ export const InfoSkillChoice = (props: InfoProps) => {
 		);
 	}
 
-	const count = props.data.count || 1;
-
-	let str;
-	if (props.data.listOptions.length === 5) {
-		str = (count > 1 ? `Choose ${count} skills.` : 'Choose a skill.');
-	} else {
-		const names = (Collections.sort(props.data.options, o => o) || []).concat((Collections.sort(props.data.listOptions, o => o) || []).map(l => `the ${l} list`)).join(', ');
-		str = (count > 1 ? `Choose ${count} skills from ${names}.` : `Choose a skill from ${names}.`);
-	}
-
-	return (
-		<div className='ds-text'>{str}</div>
-	);
+	return null;
 };
 
 interface EditProps {
@@ -70,6 +58,13 @@ export const EditSkillChoice = (props: EditProps) => {
 	const setCount = (value: number) => {
 		const copy = Utils.copy(data);
 		copy.count = value;
+		setData(copy);
+		props.setData(copy);
+	};
+
+	const setSelectAt = (value: 'build' | 'respite' | 'play') => {
+		const copy = Utils.copy(data);
+		copy.selectAt = value;
 		setData(copy);
 		props.setData(copy);
 	};
@@ -112,6 +107,17 @@ export const EditSkillChoice = (props: EditProps) => {
 			/>
 			<HeaderText>Count</HeaderText>
 			<NumberSpin min={1} value={data.count} onChange={setCount} />
+			<HeaderText>Select</HeaderText>
+			<Segmented
+				block={true}
+				options={[
+					{ value: 'build', label: 'At build time' },
+					{ value: 'respite', label: 'During a respite' },
+					{ value: 'play', label: 'In play' }
+				]}
+				value={data.selectAt}
+				onChange={setSelectAt}
+			/>
 			<HeaderText>Default Selection</HeaderText>
 			<Select
 				style={{ width: '100%' }}
@@ -138,7 +144,11 @@ interface ConfigProps {
 export const ConfigSkillChoice = (props: ConfigProps) => {
 	const [ skillSelectorOpen, setSkillSelectorOpen ] = useState<boolean>(false);
 
-	const currentSkills = HeroLogic.getSkills(props.hero, props.sourcebooks).map(s => s.name);
+	const currentSkills = [
+		...HeroLogic.getSkills(props.hero, props.sourcebooks).map(s => s.name),
+		// Cancelled skills can never be learned again
+		...HeroLogic.getCancelledSkillNames(props.hero)
+	];
 	const skills = SourcebookLogic.getSkills(props.sourcebooks as Sourcebook[])
 		.filter(skill => (props.data.options.includes(skill.name)) || (props.data.listOptions.includes(skill.list)))
 		.filter(skill => !currentSkills.includes(skill.name));
@@ -147,7 +157,6 @@ export const ConfigSkillChoice = (props: ConfigProps) => {
 
 	return (
 		<Space orientation='vertical' style={{ width: '100%' }}>
-			{props.data.count > 1 ? <div className='ds-text'>Choose {props.data.count}:</div> : null}
 			{
 				props.data.selected.map((skill, n) => {
 					const duplicated = props.hero && HeroLogic.getFeatures(props.hero)
@@ -196,6 +205,7 @@ export const ConfigSkillChoice = (props: ConfigProps) => {
 				<SkillSelectModal
 					skills={sortedSkills}
 					sourcebooks={props.sourcebooks}
+					excludeSkills={HeroLogic.getCancelledSkillNames(props.hero)}
 					onSelect={s => {
 						setSkillSelectorOpen(false);
 

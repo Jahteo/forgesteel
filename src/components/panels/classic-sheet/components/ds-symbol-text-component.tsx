@@ -11,7 +11,7 @@ interface Props {
 export const DrawSteelSymbolText = (props: Props) => {
 	const lookFor = props.lookFor || 'both';
 
-	const potencyRegex = '\\`?([MARIP])\\s*<\\s*\\[?(\\d+|weak|average|avg|strong)\\]?\\`?';
+	const potencyRegex = '\\`?([MARIP])\\s*<\\s*\\[?(-?\\d+|weak|average|avg|strong)\\]?\\`?';
 	const characteristicRegex = '\\b([MARIP])\\b';
 	let flags = 'g';
 	let regexString;
@@ -31,15 +31,31 @@ export const DrawSteelSymbolText = (props: Props) => {
 	}
 
 	const regex = new RegExp(regexString, flags);
+	const boldRegex = /\*\*(.+?)\*\*/g;
+
+	const boldify = (text: string, keyPrefix: string) => {
+		const parts: (string | JSX.Element)[] = [];
+
+		let last = 0;
+		let index = 0;
+		[ ...text.matchAll(boldRegex) ].forEach(match => {
+			parts.push(text.slice(last, match.index));
+			parts.push(<strong key={`${keyPrefix}-${index++}`}>{match[1]}</strong>);
+			last = match.index + match[0].length;
+		});
+		parts.push(text.slice(last));
+
+		return parts;
+	};
 
 	const tokenize = (text: string) => {
 		const results: (string | JSX.Element)[] = [];
 
 		let i = 0;
-		[ ...text.matchAll(regex) ].forEach(str => {
+		[ ...text.matchAll(regex) ].forEach((str, matchIndex) => {
 			const beforeMatch = text.slice(i, str.index);
 			i = str.index + str[0].length;
-			results.push(beforeMatch);
+			results.push(...boldify(beforeMatch, `before-${matchIndex}`));
 
 			if (str.length > 2 && str[2]) { // potency
 				const c = str[1].toLowerCase();
@@ -49,6 +65,7 @@ export const DrawSteelSymbolText = (props: Props) => {
 						check = 'w';
 						break;
 					case 'average':
+					case 'avg':
 						check = 'v';
 						break;
 					case 'strong':
@@ -60,7 +77,7 @@ export const DrawSteelSymbolText = (props: Props) => {
 				results.push(<div className='characteristic'>{str[1]}</div>);
 			}
 		});
-		results.push(text.slice(i));
+		results.push(...boldify(text.slice(i), 'after'));
 		return createElement(Fragment, {}, ...results);
 	};
 

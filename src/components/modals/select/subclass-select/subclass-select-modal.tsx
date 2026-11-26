@@ -1,7 +1,9 @@
 import { Alert, Divider, Space } from 'antd';
+import { Analytics } from '@/utils/analytics';
 import { Collections } from '@/utils/collections';
 import { Empty } from '@/components/controls/empty/empty';
 import { Expander } from '@/components/controls/expander/expander';
+import { HeroClass } from '@/models/class';
 import { Modal } from '@/components/modals/modal/modal';
 import { PanelMode } from '@/enums/panel-mode';
 import { SearchBox } from '@/components/controls/text-input/text-input';
@@ -15,8 +17,7 @@ import { useState } from 'react';
 import './subclass-select-modal.scss';
 
 interface Props {
-	subClasses: SubClass[];
-	classID: string;
+	heroClass: HeroClass;
 	sourcebooks: Sourcebook[];
 	onClose: () => void;
 	onSelect: (subClass: SubClass) => void;
@@ -25,26 +26,40 @@ interface Props {
 export const SubClassSelectModal = (props: Props) => {
 	const [ searchTerm, setSearchTerm ] = useState<string>('');
 
-	const subClasses = props.subClasses
+	const onSelect = (subclass: SubClass) => {
+		Analytics.logElementSelected(subclass, 'Subclass');
+		props.onSelect(subclass);
+	};
+
+	const subclassesFromThisClass = props.heroClass.subclasses
+		.filter(sc => !sc.selected);
+
+	const subclassesForThisClass = props.sourcebooks.flatMap(sb => sb.subclasses)
+		.filter(sb => sb.classID === props.heroClass.id);
+
+	const subclassesForNoClass = props.sourcebooks.flatMap(sb => sb.subclasses)
+		.filter(sb => sb.classID === '');
+
+	const subclassesFromOtherClasses = props.sourcebooks.flatMap(sb => sb.classes)
+		.filter(c => c.id !== props.heroClass.id)
+		.flatMap(c => c.subclasses);
+
+	const subclassesForOtherClasses = props.sourcebooks.flatMap(sb => sb.subclasses)
+		.filter(sb => (sb.classID !== '') && (sb.classID !== props.heroClass.id));
+
+	const subclasses = Collections.sort([ ...subclassesFromThisClass, ...subclassesForThisClass ], sc => sc.name)
 		.filter(l => Utils.textMatches([
 			l.name,
 			l.description
 		], searchTerm));
 
-	const customSubclasses = Collections.sort(
-		props.sourcebooks.flatMap(sb => sb.subclasses),
-		sc => sc.name)
+	const customSubclasses = Collections.sort(subclassesForNoClass, sc => sc.name)
 		.filter(l => Utils.textMatches([
 			l.name,
 			l.description
 		], searchTerm));
 
-	const otherSubclasses = Collections.sort(
-		props.sourcebooks
-			.flatMap(sb => sb.classes)
-			.filter(c => c.id !== props.classID)
-			.flatMap(c => c.subclasses),
-		sc => sc.name)
+	const otherSubclasses = Collections.sort([ ...subclassesFromOtherClasses, ...subclassesForOtherClasses ], sc => sc.name)
 		.filter(l => Utils.textMatches([
 			l.name,
 			l.description
@@ -59,17 +74,17 @@ export const SubClassSelectModal = (props: Props) => {
 				<div className='subclass-select-modal'>
 					<Space orientation='vertical' style={{ width: '100%' }}>
 						{
-							subClasses.map(sc => (
+							subclasses.map(sc => (
 								<SelectablePanel
 									key={sc.id}
-									onSelect={() => props.onSelect(sc)}
+									onSelect={() => onSelect(sc)}
 								>
 									<SubclassPanel subclass={sc} sourcebooks={props.sourcebooks} mode={PanelMode.Compact} />
 								</SelectablePanel>
 							))
 						}
 						{
-							subClasses.length === 0 ?
+							subclasses.length === 0 ?
 								<Empty />
 								: null
 						}
@@ -83,7 +98,7 @@ export const SubClassSelectModal = (props: Props) => {
 												customSubclasses.map(sc => (
 													<SelectablePanel
 														key={sc.id}
-														onSelect={() => props.onSelect(sc)}
+														onSelect={() => onSelect(sc)}
 													>
 														<SubclassPanel subclass={sc} sourcebooks={props.sourcebooks} mode={PanelMode.Compact} />
 													</SelectablePanel>
@@ -109,7 +124,7 @@ export const SubClassSelectModal = (props: Props) => {
 												otherSubclasses.map(sc => (
 													<SelectablePanel
 														key={sc.id}
-														onSelect={() => props.onSelect(sc)}
+														onSelect={() => onSelect(sc)}
 													>
 														<SubclassPanel subclass={sc} sourcebooks={props.sourcebooks} mode={PanelMode.Compact} />
 													</SelectablePanel>

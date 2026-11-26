@@ -52,9 +52,10 @@ export class PregenLogic {
 	};
 
 	static pregenToHero = (pregen: Pregen, sourcebooks: Sourcebook[], options: Options): Hero => {
-		const hero = FactoryLogic.createHero(pregen.sourcebookIDs);
+		const hero = FactoryLogic.createHero();
 
 		hero.name = pregen.name;
+		hero.sourcebookIDs = pregen.sourcebookIDs;
 
 		const ancestry = SourcebookLogic.getAncestries(sourcebooks).find(a => a.id === pregen.ancestryID);
 		if (ancestry) {
@@ -114,6 +115,17 @@ export class PregenLogic {
 			hero.class.subclasses.forEach(sc => {
 				sc.selected = pregen.selectedSubclassIDs.includes(sc.id);
 			});
+			// A subclass from elsewhere (a standalone homebrew subclass, or one from another class) has to be brought in
+			pregen.selectedSubclassIDs
+				.filter(id => !hero.class!.subclasses.some(sc => sc.id === id))
+				.forEach(id => {
+					const subclass = SourcebookLogic.getSubclasses(sourcebooks, true).find(sc => sc.id === id);
+					if (subclass) {
+						const copy = Utils.copy(subclass);
+						copy.selected = true;
+						hero.class!.subclasses.push(copy);
+					}
+				});
 		}
 
 		const complication = SourcebookLogic.getComplications(sourcebooks).find(c => c.id === pregen.complicationID);
@@ -172,6 +184,8 @@ export class PregenLogic {
 				return [ ...feature.data.selected.map(o => o.id) ];
 			case FeatureType.Retainer:
 				return feature.data.selected ? [ feature.data.selected.id ] : [];
+			case FeatureType.SkillCancelChoice:
+				return [ ...feature.data.selected ];
 			case FeatureType.SkillChoice:
 				return [ ...feature.data.selected ];
 			case FeatureType.SummonChoice:
@@ -180,6 +194,8 @@ export class PregenLogic {
 				return [ ...feature.data.selected.map(o => o.id) ];
 			case FeatureType.TitleChoice:
 				return [ ...feature.data.selected.map(o => o.id) ];
+			case FeatureType.Complication:
+				return feature.data.selected ? [ feature.data.selected.id ] : [];
 		};
 
 		return null;
@@ -259,6 +275,9 @@ export class PregenLogic {
 					}
 				}
 				break;
+			case FeatureType.SkillCancelChoice:
+				feature.data.selected = selections;
+				break;
 			case FeatureType.SkillChoice:
 				feature.data.selected = selections;
 				break;
@@ -273,6 +292,11 @@ export class PregenLogic {
 			case FeatureType.TitleChoice:
 				feature.data.selected = selections.map(titleID => SourcebookLogic.getTitles(sourcebooks).find(t => t.id === titleID)).filter(t => !!t).map(Utils.copy);
 				break;
+			case FeatureType.Complication: {
+				const complication = SourcebookLogic.getComplications(sourcebooks).find(c => c.id === selections[0]);
+				feature.data.selected = complication ? Utils.copy(complication) : null;
+				break;
+			}
 		};
 	};
 };

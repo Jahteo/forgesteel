@@ -12,7 +12,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: space-evenly;
-		background: linear-gradient(rgb(255, 255, 255), rgb(250, 250, 250));
+		background: var(--fs-surface-raised);
 		border-radius: 6px;
 		opacity: 1;
 		transition: opacity ease-in-out 0.25s;
@@ -39,6 +39,16 @@
 
 	.stats-section {
 		flex: 1 1 0;
+
+		.characteristic-btn {
+			width: 30px;
+			cursor: pointer;
+			border-radius: 5px;
+
+			&:hover {
+				background-color: rgba(0, 0, 0, 0.1);
+			}
+		}
 	}
 }
 
@@ -46,8 +56,13 @@ html[data-theme="dark"] {
 	.stats-sidebar-panel {
 		.stats-info,
 		.stats-section {
-			background: linear-gradient(rgb(25, 25, 25), rgb(0, 0, 0));
 			color: rgba(255, 255, 255, 0.88);
+
+			.characteristic-btn {
+				&:hover {
+					background-color: rgba(255, 255, 255, 0.1);
+				}
+			}
 		}
 	}
 }

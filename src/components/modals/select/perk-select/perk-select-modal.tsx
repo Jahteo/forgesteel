@@ -1,4 +1,6 @@
-import { Empty } from '@/components/controls/empty/empty';
+import { Alert, Divider, Space } from 'antd';
+import { Analytics } from '@/utils/analytics';
+import { Expander } from '@/components/controls/expander/expander';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
 import { Modal } from '@/components/modals/modal/modal';
@@ -9,7 +11,7 @@ import { PerkPanel } from '@/components/panels/elements/perk-panel/perk-panel';
 import { SearchBox } from '@/components/controls/text-input/text-input';
 import { SelectablePanel } from '@/components/controls/selectable-panel/selectable-panel';
 import { Sourcebook } from '@/models/sourcebook';
-import { Space } from 'antd';
+import { SourcebookLogic } from '@/logic/sourcebook-logic';
 import { Utils } from '@/utils/utils';
 import { useState } from 'react';
 
@@ -26,10 +28,21 @@ interface Props {
 export const PerkSelectModal = (props: Props) => {
 	const [ searchTerm, setSearchTerm ] = useState<string>('');
 
+	const onSelect = (perk: Perk) => {
+		Analytics.logElementSelected(perk, 'Perk');
+		props.onSelect(perk);
+	};
+
 	const perks = props.perks
 		.filter(p => Utils.textMatches([
 			p.name,
 			p.description
+		], searchTerm));
+	const otherPerks = SourcebookLogic.getPerks(props.sourcebooks)
+		.filter(os => !props.perks.map(p => p.name).includes(os.name))
+		.filter(os => Utils.textMatches([
+			os.name,
+			os.description
 		], searchTerm));
 
 	return (
@@ -51,7 +64,7 @@ export const PerkSelectModal = (props: Props) => {
 									<HeaderText level={1}>{list}</HeaderText>
 									{
 										subset.map((p, n) => (
-											<SelectablePanel key={n} onSelect={() => props.onSelect(p)}>
+											<SelectablePanel key={n} onSelect={() => onSelect(p)}>
 												<PerkPanel perk={p} hero={props.hero} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />
 											</SelectablePanel>
 										))
@@ -61,8 +74,26 @@ export const PerkSelectModal = (props: Props) => {
 						})
 					}
 					{
-						perks.length === 0 ?
-							<Empty />
+						otherPerks.length > 0 ?
+							<>
+								<Divider />
+								<Expander title='Other Perks'>
+									<Space orientation='vertical' style={{ width: '100%' }}>
+										<Alert
+											type='warning'
+											showIcon={true}
+											title='Selecting a perk from outside the listed groups is typically against the rules.'
+										/>
+										{
+											otherPerks.map((p, n) => (
+												<SelectablePanel key={n} onSelect={() => props.onSelect(p)}>
+													<PerkPanel perk={p} hero={props.hero} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />
+												</SelectablePanel>
+											))
+										}
+									</Space>
+								</Expander>
+							</>
 							: null
 					}
 				</div>

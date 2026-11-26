@@ -216,7 +216,7 @@ export const AbilityModal = (props: Props) => {
 											: rollSection.roll.bonus
 									]}
 									rollState={rollState}
-									hero={null}
+									creature={hero || props.monster || null}
 									onRollStateChange={setRollState}
 									onRoll={setTier}
 								/>
@@ -261,7 +261,6 @@ export const AbilityModal = (props: Props) => {
 								<NumberSpin
 									disabled={!hasDamage}
 									label='Damage'
-									min={0}
 									value={customization?.damageBonus || 0}
 									onChange={setDamage}
 								/>

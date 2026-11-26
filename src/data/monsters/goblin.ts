@@ -559,7 +559,7 @@ Their long arms and prehensile toes make goblins particularly well adapted to en
 			stamina: 80,
 			stability: 1,
 			freeStrikeDamage: 4,
-			characteristics: FactoryLogic.createCharacteristics(3, 2, -4, 0, -3),
+			characteristics: FactoryLogic.createCharacteristics(0, 3, 1, 0, 3),
 			features: [
 				FactoryLogic.feature.createAbility({
 					ability: FactoryLogic.createAbility({
@@ -737,6 +737,7 @@ Their long arms and prehensile toes make goblins particularly well adapted to en
 						target: 'Each creature in the area',
 						sections: [
 							FactoryLogic.createAbilitySectionRoll(FactoryLogic.createPowerRoll({
+								bonus: 2,
 								tier1: 'A<0 restrained (save ends)',
 								tier2: 'A<1 restrained (save ends)',
 								tier3: 'A<2 restrained (save ends)'

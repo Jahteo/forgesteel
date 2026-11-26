@@ -1,4 +1,5 @@
 import { Button, Space } from 'antd';
+import { Analytics } from '@/utils/analytics';
 import { Empty } from '@/components/controls/empty/empty';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { Modal } from '@/components/modals/modal/modal';
@@ -23,6 +24,11 @@ interface Props {
 export const ProjectSelectModal = (props: Props) => {
 	const [ searchTerm, setSearchTerm ] = useState<string>('');
 
+	const onSelect = (project: Project) => {
+		Analytics.logElementSelected(project, 'Project');
+		props.onSelect(project);
+	};
+
 	const projects = [
 		FactoryLogic.createProject({
 			name: 'Custom Project',
@@ -32,7 +38,9 @@ export const ProjectSelectModal = (props: Props) => {
 	]
 		.filter(item => Utils.textMatches([
 			item.name,
-			item.description
+			item.description,
+			item.itemPrerequisites,
+			item.source
 		], searchTerm));
 
 	return (
@@ -47,7 +55,7 @@ export const ProjectSelectModal = (props: Props) => {
 							projects.map(project => (
 								<SelectablePanel
 									key={project.id}
-									onSelect={() => props.onSelect(project)}
+									onSelect={() => onSelect(project)}
 								>
 									<ProjectPanel project={project} sourcebooks={props.sourcebooks} />
 								</SelectablePanel>

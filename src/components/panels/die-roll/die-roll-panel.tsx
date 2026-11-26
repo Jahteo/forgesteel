@@ -2,15 +2,19 @@ import { Alert, Button, Drawer, Flex, Segmented, Slider, Statistic } from 'antd'
 import { ReactNode, useState } from 'react';
 import { BarChartOutlined } from '@ant-design/icons';
 import { Collections } from '@/utils/collections';
-import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
+import { CreatureLogic } from '@/logic/creature-logic';
+import { DiceTray } from '@/components/panels/dice-tray/dice-tray';
+import { DieResult } from '@/models/die-result';
+import { DieType } from '@/enums/die-type';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
-import { HeroLogic } from '@/logic/hero-logic';
 import { HistogramPanel } from '@/components/panels/histogram/histogram-panel';
 import { Modal } from '@/components/modals/modal/modal';
+import { Monster } from '@/models/monster';
 import { Random } from '@/utils/random';
 import { RollLogic } from '@/logic/roll-logic';
 import { RollState } from '@/enums/roll-state';
+import { useOptions } from '@/contexts/data-context';
 
 import './die-roll-panel.scss';
 
@@ -18,7 +22,7 @@ interface Props {
 	type: 'Power Roll' | 'Saving Throw';
 	modifiers: number[];
 	rollState: RollState;
-	hero: Hero | null;
+	creature: Hero | Monster | null;
 	onRollStateChange: (value: RollState) => void;
 	onRoll?: (tier: number) => void;
 }
@@ -26,6 +30,9 @@ interface Props {
 export const DieRollPanel = (props: Props) => {
 	const [ showOdds, setShowOdds ] = useState<boolean>(false);
 	const [ results, setResults ] = useState<number[]>([]);
+	const [ dice, setDice ] = useState<DieResult[] | null>(null);
+	const [ rolling, setRolling ] = useState<boolean>(false);
+	const options = useOptions();
 
 	const roll = () => {
 		const rolls: number[] = [];
@@ -39,8 +46,22 @@ export const DieRollPanel = (props: Props) => {
 				break;
 		}
 
-		setTierResult(rolls, props.rollState);
 		setResults(rolls);
+
+		if (options.show3DDice) {
+			// The result is revealed once the dice come to rest
+			setDice(rolls.map(r => ({ type: DieType.D10, value: r })));
+			setRolling(true);
+		} else {
+			setTierResult(rolls, props.rollState);
+		}
+	};
+
+	// Called after the first throw, and again after each die the user rerolls
+	const onDiceSettled = (values: number[]) => {
+		setResults(values);
+		setRolling(false);
+		setTierResult(values, props.rollState);
 	};
 
 	const setTierResult = (rolls: number[], rollState: RollState) => {
@@ -102,13 +123,13 @@ export const DieRollPanel = (props: Props) => {
 		case 'Saving Throw':
 			max = 10;
 			marks[1] = <div className='ds-text dimmed-text small-text'>1</div>;
-			marks[(props.hero ? HeroLogic.getSaveThreshold(props.hero) : 6) - 0.5] = <div className='ds-text dimmed-text small-text'>-</div>;
+			marks[(props.creature ? CreatureLogic.getSaveThreshold(props.creature) : 6) - 0.5] = <div className='ds-text dimmed-text small-text'>-</div>;
 			marks[10] = <div className='ds-text dimmed-text small-text'>10</div>;
 			break;
 	}
 
 	return (
-		<ErrorBoundary>
+		<>
 			<div className='die-roll-panel'>
 				{
 					props.type === 'Power Roll' ?
@@ -124,7 +145,7 @@ export const DieRollPanel = (props: Props) => {
 								]}
 								value={props.rollState}
 								onChange={rs => {
-									if (results.length > 0) {
+									if ((results.length > 0) && !rolling) {
 										setTierResult(results, rs);
 									}
 									props.onRollStateChange(rs);
@@ -138,7 +159,12 @@ export const DieRollPanel = (props: Props) => {
 					{(props.type === 'Power Roll') ? 'Roll 2d10' : 'Roll 1d10' }
 				</Button>
 				{
-					results.length > 0 ?
+					dice ?
+						<DiceTray dice={dice} onSettled={onDiceSettled} onReroll={() => setRolling(true)} />
+						: null
+				}
+				{
+					(results.length > 0) && !rolling ?
 						<div className='result-row'>
 							{(props.type === 'Power Roll') ? results.map((r, n) => <Statistic key={n} title='d10' value={r} />) : null}
 							{(props.type === 'Power Roll') ? props.modifiers.filter(m => m !== 0).map((m, n) => <Statistic key={n} title='Modifier' value={`${m >= 0 ? '+' : ''}${m}`} />) : null}
@@ -148,7 +174,7 @@ export const DieRollPanel = (props: Props) => {
 						: null
 				}
 				{
-					results.length > 0 ?
+					(results.length > 0) && !rolling ?
 						<Slider
 							range={true}
 							marks={marks}
@@ -174,7 +200,7 @@ export const DieRollPanel = (props: Props) => {
 						: null
 				}
 				{
-					(props.type === 'Power Roll') && (Collections.sum(results, r => r) >= 19) ?
+					(props.type === 'Power Roll') && !rolling && (Collections.sum(results, r => r) >= 19) ?
 						<Alert
 							type='success'
 							showIcon={true}
@@ -183,11 +209,11 @@ export const DieRollPanel = (props: Props) => {
 						: null
 				}
 				{
-					(props.type === 'Saving Throw') && (total > 0) ?
+					(props.type === 'Saving Throw') && !rolling && (total > 0) ?
 						<Alert
 							type='info'
 							showIcon={true}
-							title={`This roll would usually indicate a ${total >= (props.hero ? HeroLogic.getSaveThreshold(props.hero) : 6) ? 'success' : 'failure'}.`}
+							title={`This roll would usually indicate a ${total >= (props.creature ? CreatureLogic.getSaveThreshold(props.creature) : 6) ? 'success' : 'failure'}.`}
 						/>
 						: null
 				}
@@ -226,6 +252,6 @@ export const DieRollPanel = (props: Props) => {
 					onClose={() => setShowOdds(false)}
 				/>
 			</Drawer>
-		</ErrorBoundary>
+		</>
 	);
 };

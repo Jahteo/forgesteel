@@ -9,6 +9,7 @@ import { ItemType } from '@/enums/item-type';
 import { Kit } from '@/models/kit';
 import { KitArmor } from '@/enums/kit-armor';
 import { KitWeapon } from '@/enums/kit-weapon';
+import { RollModifierType } from '@/enums/roll-modifier-type';
 import { Sourcebook } from '@/models/sourcebook';
 import { SourcebookType } from '@/enums/sourcebook-type';
 
@@ -65,7 +66,7 @@ In combat, any goblin who is out of range of the Boss (ignoring LoE) can only us
 		}),
 		FactoryLogic.feature.createChoice({
 			id: 'goblin-squad-feature-8',
-			name: 'Goblin Squad Traits',
+			name: 'Purchased Traits',
 			options: [
 				{
 					feature: FactoryLogic.feature.create({
@@ -169,7 +170,7 @@ The enhancements are largely hidden with artificial skin and minor illusions alt
 		}),
 		FactoryLogic.feature.createChoice({
 			id: 'psi-borg-feature-3',
-			name: 'Psi-Borg Traits',
+			name: 'Purchased Traits',
 			options: [
 				{
 					feature: FactoryLogic.feature.create({
@@ -437,7 +438,7 @@ The water in this clear staff is constantly moving and shifting between ice, wat
 			level: 5,
 			features: [
 				FactoryLogic.feature.create({
-					id: 'item-shifting-tides-9',
+					id: 'item-shifting-tides-5',
 					name: 'Level 5',
 					description: 'While you wield this implement, you or an adjacent ally takes damage that isn’t untyped or holy damage, you can change the damage type to another, non-holy damage type as a triggered action. The first time you use this triggered action in an encounter, it is a free triggered action.'
 				})
@@ -654,10 +655,23 @@ This black metal implant replaces your spine with a set of extendable blades.`,
 		{
 			level: 1,
 			features: [
-				FactoryLogic.feature.create({
+				FactoryLogic.feature.createMultiple({
 					id: 'item-item-arachnian-implants-1',
 					name: 'Arachnian Implants',
-					description: 'While extended, you can automatically climb at full speed. You also gain an edge on tests that use the Climb or Gymnastics skills. As a Triggered Action, when you use an ability with the Strike keyword, you can choose to deal damage equal to your Reason score to all adjacent enemies.'
+					features: [
+						FactoryLogic.feature.create({
+							id: 'item-item-arachnian-implants-1a',
+							name: 'Arachnian Implants',
+							description: 'While extended, you can automatically climb at full speed. As a Triggered Action, when you use an ability with the Strike keyword, you can choose to deal damage equal to your Reason score to all adjacent enemies.'
+						}),
+						FactoryLogic.feature.createRollModifier({
+							id: 'item-item-arachnian-implants-1b',
+							name: 'Arachnian Implants',
+							modifier: RollModifierType.Edge,
+							skills: [ 'Climb', 'Gymnastics' ],
+							condition: 'While your implants are extended'
+						})
+					]
 				})
 			]
 		}
@@ -1127,6 +1141,7 @@ export const blacksmith: Sourcebook = {
 	classes: [],
 	domains: [],
 	encounters: [],
+	extensions: [],
 	imbuements: [],
 	items: [
 		abundanceOfLoveAndReticence,

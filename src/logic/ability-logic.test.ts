@@ -1,26 +1,29 @@
-import { afterEach, assert, describe, expect, it, test, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, test, vi } from 'vitest';
 import { Ability } from '@/models/ability';
 import { AbilityData } from '@/data/ability-data';
+import { AbilityDistanceType } from '@/enums/ability-distance-type';
+import { AbilityKeyword } from '@/enums/ability-keyword';
 import { AbilityLogic } from '@/logic/ability-logic';
 import { Characteristic } from '@/enums/characteristic';
 import { CreatureLogic } from '@/logic/creature-logic';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { Hero } from '@/models/hero';
 import { HeroLogic } from '@/logic/hero-logic';
+import { Monster } from '@/models/monster';
+
+vi.mock('@/logic/creature-logic', () => {
+	const CreatureLogic = vi.fn();
+	return { CreatureLogic: CreatureLogic };
+});
+
+vi.mock('@/logic/hero-logic', () => {
+	const HeroLogic = vi.fn();
+	return { HeroLogic: HeroLogic };
+});
 
 describe('getPowerRollCharacteristics', () => {
 	afterEach(() => {
 		vi.resetAllMocks();
-	});
-
-	vi.mock('@/logic/creature-logic', () => {
-		const CreatureLogic = vi.fn();
-		return { CreatureLogic: CreatureLogic };
-	});
-
-	vi.mock('@/logic/hero-logic', () => {
-		const HeroLogic = vi.fn();
-		return { HeroLogic: HeroLogic };
 	});
 
 	test.each([
@@ -40,7 +43,7 @@ describe('getPowerRollCharacteristics', () => {
 		CreatureLogic.isHero = vi.fn().mockReturnValue(true);
 		HeroLogic.getFeatures = vi.fn().mockReturnValue([]);
 
-		const hero = FactoryLogic.createHero([]);
+		const hero = FactoryLogic.createHero();
 
 		[ AbilityData.grab, AbilityData.knockback ].forEach(ability => {
 			const result = AbilityLogic.getPowerRollCharacteristics(ability, hero);
@@ -54,7 +57,7 @@ describe('getPowerRollCharacteristics', () => {
 		CreatureLogic.isHero = vi.fn().mockReturnValue(true);
 		HeroLogic.getFeatures = vi.fn().mockReturnValue([ { feature: { id: 'null-1-8' } } ]); // Psionic Martial Arts id
 
-		const hero = FactoryLogic.createHero([]);
+		const hero = FactoryLogic.createHero();
 
 		[ AbilityData.grab, AbilityData.knockback ].forEach(ability => {
 			const result = AbilityLogic.getPowerRollCharacteristics(ability, hero);
@@ -69,10 +72,6 @@ describe('getTextEffect', () => {
 		vi.resetAllMocks();
 	});
 
-	vi.mock('@/logic/hero-logic', () => {
-		const HeroLogic = vi.fn();
-		return { HeroLogic: HeroLogic };
-	});
 	HeroLogic.getPotency = vi.fn();
 
 	it('should calculate constant dice roll effects properly when no hero is provided', () => {
@@ -126,5 +125,376 @@ describe('getTextEffect', () => {
 		const hero = {} as Hero;
 
 		expect(AbilityLogic.getTextEffect(text, hero)).toBe(expected);
+	});
+
+	test.each([
+		[ 'Regain 5 + M', 'Regain 8' ],
+		[ 'Regain 5 + 2M', 'Regain 11' ],
+		[ 'Regain 5 + 2m', 'Regain 11' ],
+		[ 'Regain 5 + 2 x Might', 'Regain 11' ],
+		[ 'Regain 5 + 2×Might', 'Regain 11' ]
+	])('should properly apply a multiplier on a short-form characteristic reference (%s)', (text, expected) => {
+		HeroLogic.getCharacteristic = vi.fn().mockReturnValue(3);
+		const hero = {} as Hero;
+
+		expect(AbilityLogic.getTextEffect(text, hero)).toBe(expected);
+	});
+
+	test.each([
+		[ 'add 2 plus your Presence score', 'add 5' ],
+		[ 'add 1d10 plus your Presence score to the roll', 'add 1d10 + 3 to the roll' ],
+		[ 'add 1d10 + your Intuition score', 'add 1d10 + 3' ],
+		[ 'add d10 plus your Presence score', 'add d10 + 3' ],
+		[ 'Regain 2d6 + M', 'Regain 2d6 + 3' ],
+		[ 'Regain 2d6 + 2M', 'Regain 2d6 + 6' ],
+		[ 'Regain 2d6 + 4 + M', 'Regain 2d6 + 7' ]
+	])('should add a characteristic to a die roll rather than to its number of sides (%s)', (text, expected) => {
+		HeroLogic.getCharacteristic = vi.fn().mockReturnValue(3);
+		const hero = {} as Hero;
+
+		expect(AbilityLogic.getTextEffect(text, hero)).toBe(expected);
+	});
+
+	test.each([
+		[ 'Regain 5 + HC', 'Regain 9' ],
+		[ 'Regain 5 + 2HC', 'Regain 13' ],
+		[ 'Regain 2d6 + HC', 'Regain 2d6 + 4' ]
+	])('should use the highest characteristic for HC (%s)', (text, expected) => {
+		HeroLogic.getCharacteristic = vi.fn().mockImplementation((_hero: Hero, characteristic: Characteristic) => {
+			return characteristic === Characteristic.Reason ? 4 : 1;
+		});
+		const hero = {} as Hero;
+
+		expect(AbilityLogic.getTextEffect(text, hero)).toBe(expected);
+	});
+
+	// A hero whose characteristic is low enough has a negative potency, which still has to be shown as a potency
+	test('should format a negative hero potency as a potency', () => {
+		HeroLogic.getPotency = vi.fn().mockReturnValue(-2);
+		const hero = {} as Hero;
+
+		expect(AbilityLogic.getTextEffect('4 damage; A < weak, bleeding (save ends)', hero)).toBe('4 damage; `A < -2` **bleeding** (save ends)');
+	});
+
+	test.each([
+		[ 'A<0 restrained (save ends)', '`A<0` **restrained** (save ends)' ],
+		[ 'A < -2, bleeding (save ends)', '`A < -2` **bleeding** (save ends)' ],
+		[ 'the target is dazed and slowed (save ends)', 'the target is **dazed** and **slowed** (save ends)' ],
+		[ 'the target takes 3 fire damage', 'the target takes 3 fire damage' ]
+	])('should bold known condition names (%s)', (text, expected) => {
+		expect(AbilityLogic.getTextEffect(text, undefined)).toBe(expected);
+	});
+
+	test.each([
+		[ 'Push 1', 'Push 2' ],
+		[ 'pushed 2 squares away', 'pushed 3 squares away' ],
+		[ 'pulled 5 squares', 'pulled 6 squares' ],
+		[ 'slides 3 squares', 'slides 4 squares' ],
+		[ 'slid 2 squares', 'slid 3 squares' ]
+	])('should apply the forced movement bonus to push/pull/slide text regardless of verb conjugation (%s)', (text, expected) => {
+		HeroLogic.getForcedMovementBonus = vi.fn().mockReturnValue(1);
+		const hero = {} as Hero;
+
+		expect(AbilityLogic.getTextEffect(text, hero)).toBe(expected);
+	});
+});
+
+describe('getTierEffect', () => {
+	afterEach(() => {
+		vi.resetAllMocks();
+	});
+
+	const ability = AbilityData.freeStrikeMelee;
+	const hero = {} as Hero;
+
+	beforeEach(() => {
+		HeroLogic.getFeatures = vi.fn().mockReturnValue([]);
+		HeroLogic.getKitDamageBonus = vi.fn().mockReturnValue(null);
+		HeroLogic.getFeatureDamageBonuses = vi.fn().mockReturnValue([]);
+		HeroLogic.getRolledDamageBonus = vi.fn().mockReturnValue(0);
+		HeroLogic.getCharacteristic = vi.fn().mockReturnValue(3);
+		HeroLogic.getPotency = vi.fn().mockReturnValue(0);
+		HeroLogic.getForcedMovementBonus = vi.fn().mockReturnValue(0);
+	});
+
+	test.each([
+		[ '5 + 2M damage', '11 damage' ],
+		[ '7 + 3M damage', '16 damage' ],
+		[ '10 + 4M damage', '22 damage' ],
+		[ '5 + 2m damage', '11 damage' ],
+		[ '5 + 2 x M damage', '11 damage' ],
+		[ '5 + 2 x Might damage', '11 damage' ],
+		[ '5 + 2×Might damage', '11 damage' ]
+	])('should apply a per-tier characteristic multiplier (%s)', (text, expected) => {
+		expect(AbilityLogic.getTierEffect(text, 1, ability, undefined, hero)).toBe(expected);
+	});
+
+	it('applies the selected kit bonus when several kit options are available', () => {
+		HeroLogic.getKitDamageBonus = vi.fn().mockReturnValue({ name: 'Selected', type: 'melee', tier1: 2, tier2: 3, tier3: 4 });
+
+		expect(AbilityLogic.getTierEffect('5 damage', 1, ability, undefined, hero)).toBe('7 damage');
+	});
+
+	it('waits for a melee or ranged mode before applying a kit bonus to a dual-mode ability', () => {
+		const dualAbility = {
+			...ability,
+			keywords: [ ...ability.keywords, AbilityKeyword.Ranged ]
+		};
+		HeroLogic.getKitDamageBonus = vi.fn().mockImplementation((_hero, type) => ({
+			name: type,
+			type: type,
+			tier1: type === 'melee' ? 2 : 4,
+			tier2: 0,
+			tier3: 0
+		}));
+
+		expect(AbilityLogic.getTierEffect('5 damage', 1, dualAbility, undefined, hero)).toBe('5 damage');
+		expect(HeroLogic.getKitDamageBonus).not.toHaveBeenCalled();
+		expect(AbilityLogic.getTierEffect('5 damage', 1, dualAbility, AbilityDistanceType.Melee, hero)).toBe('7 damage');
+		expect(HeroLogic.getKitDamageBonus).toHaveBeenLastCalledWith(hero, 'melee');
+		expect(AbilityLogic.getTierEffect('5 damage', 1, dualAbility, AbilityDistanceType.Ranged, hero)).toBe('9 damage');
+		expect(HeroLogic.getKitDamageBonus).toHaveBeenLastCalledWith(hero, 'ranged');
+	});
+
+	it('should still support a bare, unmultiplied characteristic reference', () => {
+		expect(AbilityLogic.getTierEffect('3 + M damage', 1, ability, undefined, hero)).toBe('6 damage');
+	});
+
+	it('should still take the max of an "or" list of bare characteristics', () => {
+		HeroLogic.getCharacteristic = vi.fn().mockImplementation((_hero: Hero, characteristic: Characteristic) => {
+			return characteristic === Characteristic.Agility ? 5 : 3;
+		});
+
+		expect(AbilityLogic.getTierEffect('3 + M or A damage', 1, ability, undefined, hero)).toBe('8 damage');
+	});
+
+	it('should combine a later untyped damage section into the primary (typed) damage section', () => {
+		const text = '2 corruption damage; A<0 restrained (save ends); +4 damage';
+		expect(AbilityLogic.getTierEffect(text, 1, ability, undefined, hero)).toBe('6 corruption damage; `A<0` **restrained** (save ends)');
+	});
+
+	it('should combine a later damage section that repeats the same type', () => {
+		expect(AbilityLogic.getTierEffect('2 corruption damage; +4 corruption damage', 1, ability, undefined, hero)).toBe('6 corruption damage');
+	});
+
+	it('should NOT combine damage sections that specify different types', () => {
+		expect(AbilityLogic.getTierEffect('2 lightning damage; 2 sonic damage', 1, ability, undefined, hero)).toBe('2 lightning damage; 2 sonic damage');
+	});
+
+	it('should NOT combine a later damage section that is conditional', () => {
+		const text = '3 damage; if the target is prone, an extra 2 damage';
+		expect(AbilityLogic.getTierEffect(text, 1, ability, undefined, hero)).toBe('3 damage; if the target is **prone**, an extra 2 damage');
+	});
+
+	it('should NOT combine a later conditional damage section even if it repeats the primary type', () => {
+		const text = '3 fire damage; if burning, an extra 2 fire damage';
+		expect(AbilityLogic.getTierEffect(text, 1, ability, undefined, hero)).toBe(text);
+	});
+
+	it('should NOT treat prose that merely ends in "damage" as a damage expression', () => {
+		const text = 'The jurist halves the triggering damage';
+		expect(AbilityLogic.getTierEffect(text, 1, ability, undefined, hero)).toBe(text);
+	});
+
+	test.each([
+		[ '3 acid damage, 3 lightning damage', '3 acid damage, 3 lightning damage' ],
+		[ '3 acid damage and 3 lightning damage', '3 acid damage and 3 lightning damage' ],
+		[ '3 + M acid damage, 2 + M lightning damage', '6 acid damage, 5 lightning damage' ]
+	])('should keep separate damage amounts in the same section separate (%s)', (text, expected) => {
+		expect(AbilityLogic.getTierEffect(text, 1, ability, undefined, hero)).toBe(expected);
+	});
+
+	it('should only apply damage bonuses to the first of several damage amounts', () => {
+		HeroLogic.getRolledDamageBonus = vi.fn().mockReturnValue(2);
+		expect(AbilityLogic.getTierEffect('3 acid damage, 3 lightning damage', 1, ability, undefined, hero)).toBe('5 acid damage, 3 lightning damage');
+	});
+
+	it('should combine a later damage section into the damage amount with the same type', () => {
+		expect(AbilityLogic.getTierEffect('3 acid damage, 3 lightning damage; +2 lightning damage', 1, ability, undefined, hero)).toBe('3 acid damage, 5 lightning damage');
+	});
+
+	it('should keep the "or" in a choice of damage types', () => {
+		expect(AbilityLogic.getTierEffect('6 + I fire or lightning damage', 1, ability, undefined, hero)).toBe('9 fire or lightning damage');
+	});
+
+	test.each([
+		[ '5 + HC damage', '10 damage' ],
+		[ '5 + hc damage', '10 damage' ],
+		[ '5 + 2HC damage', '15 damage' ],
+		[ '5 + 2 x HC damage', '15 damage' ],
+		[ '5 + HC fire damage', '10 fire damage' ]
+	])('should use the highest characteristic for HC (%s)', (text, expected) => {
+		HeroLogic.getCharacteristic = vi.fn().mockImplementation((_hero: Hero, characteristic: Characteristic) => {
+			return characteristic === Characteristic.Presence ? 5 : 1;
+		});
+
+		expect(AbilityLogic.getTierEffect(text, 1, ability, undefined, hero)).toBe(expected);
+	});
+});
+
+describe('getTierEffectRetainer', () => {
+	afterEach(() => {
+		vi.resetAllMocks();
+	});
+
+	const ability = { cost: 1 } as Ability;
+	const retainer = {} as Monster;
+
+	it('should combine a later untyped damage section into the primary (typed) damage section', () => {
+		const text = '2 corruption damage; A<0 restrained (save ends); +4 damage';
+		expect(AbilityLogic.getTierEffectRetainer(text, 1, ability, retainer)).toBe('6 corruption damage; `A<0` **restrained** (save ends)');
+	});
+
+	it('should combine a later damage section that repeats the same type', () => {
+		expect(AbilityLogic.getTierEffectRetainer('2 corruption damage; +4 corruption damage', 1, ability, retainer)).toBe('6 corruption damage');
+	});
+
+	it('should NOT combine damage sections that specify different types', () => {
+		expect(AbilityLogic.getTierEffectRetainer('2 lightning damage; 2 sonic damage', 1, ability, retainer)).toBe('2 lightning damage; 2 sonic damage');
+	});
+
+	it('should NOT combine a later damage section that is conditional', () => {
+		const text = '3 damage; if the target is prone, an extra 2 damage';
+		expect(AbilityLogic.getTierEffectRetainer(text, 1, ability, retainer)).toBe('3 damage; if the target is **prone**, an extra 2 damage');
+	});
+
+	it('should NOT combine a later conditional damage section even if it repeats the primary type', () => {
+		const text = '3 fire damage; if burning, an extra 2 fire damage';
+		expect(AbilityLogic.getTierEffectRetainer(text, 1, ability, retainer)).toBe(text);
+	});
+
+	it('should NOT treat prose that merely ends in "damage" as a damage expression', () => {
+		const text = 'The jurist halves the triggering damage';
+		expect(AbilityLogic.getTierEffectRetainer(text, 1, ability, retainer)).toBe(text);
+	});
+
+	test.each([
+		[ '3 acid damage, 3 lightning damage', '3 acid damage, 3 lightning damage' ],
+		[ '3 acid damage and 3 lightning damage', '3 acid damage and 3 lightning damage' ]
+	])('should keep separate damage amounts in the same section separate (%s)', (text, expected) => {
+		expect(AbilityLogic.getTierEffectRetainer(text, 1, ability, retainer)).toBe(expected);
+	});
+
+	it('should combine a later damage section into the damage amount with the same type', () => {
+		expect(AbilityLogic.getTierEffectRetainer('3 acid damage, 3 lightning damage; +2 lightning damage', 1, ability, retainer)).toBe('3 acid damage, 5 lightning damage');
+	});
+
+	it('should use the highest characteristic for HC', () => {
+		CreatureLogic.getCharacteristic = vi.fn().mockImplementation((_creature: Monster, characteristic: Characteristic) => {
+			return characteristic === Characteristic.Agility ? 4 : 1;
+		});
+
+		expect(AbilityLogic.getTierEffectRetainer('3 + HC damage', 1, ability, retainer)).toBe('7 damage');
+	});
+});
+
+describe('getDamageParts', () => {
+	test.each([
+		[ '3 acid damage, 3 lightning damage', [ '3 acid damage', '3 lightning damage' ] ],
+		[ '3 acid damage, and 3 lightning damage', [ '3 acid damage', '3 lightning damage' ] ],
+		[ '2d6 fire damage plus 1d6 cold damage', [ '2d6 fire damage', '1d6 cold damage' ] ],
+		[ '3 + M, R, I, or P damage', [ '3 + M, R, I, or P damage' ] ],
+		[ '3 damage + M or A damage', [ '3 damage + M or A damage' ] ],
+		[ '5 fire damage, and the target is burning', [ '5 fire damage, and the target is burning' ] ],
+		[ '5 fire damage, and the target takes damage', [ '5 fire damage, and the target takes damage' ] ]
+	])('%s', (text, expected) => {
+		expect(AbilityLogic.getDamageParts(text).map(p => p.text)).toEqual(expected);
+	});
+});
+
+describe('isDamageSection', () => {
+	test.each([
+		[ '5 + 2M damage', true ],
+		[ '+4 corruption damage', true ],
+		[ '2d6 + 7 + A damage', true ],
+		[ 'R damage', true ],
+		[ '3 + M, R, I, or P damage', true ],
+		[ 'A < 2 3 acid damage', true ],
+		[ 'The jurist halves the triggering damage', false ],
+		[ 'A creature takes damage', false ],
+		[ 'if the target is prone, an extra 2 damage', false ],
+		[ '5 + M damage and push 2', false ],
+		[ '5 + HC damage', true ],
+		[ 'HC damage', true ]
+	])('%s', (text, expected) => {
+		expect(AbilityLogic.isDamageSection(text)).toBe(expected);
+	});
+});
+
+describe('getPowerRollBonusValue', () => {
+	afterEach(() => {
+		vi.resetAllMocks();
+	});
+
+	const createAbility = (roll: { characteristic?: Characteristic, bonus?: number, tier1: string }) => {
+		return FactoryLogic.createAbility({
+			id: 'test-ability',
+			name: 'Test Ability',
+			sections: [
+				FactoryLogic.createAbilitySectionRoll(FactoryLogic.createPowerRoll({
+					characteristic: roll.characteristic,
+					bonus: roll.bonus,
+					tier1: roll.tier1,
+					tier2: '',
+					tier3: ''
+				}))
+			]
+		});
+	};
+
+	const monster = {} as Monster;
+
+	const mockMonster = (characteristics: Partial<Record<Characteristic, number>>) => {
+		// @ts-expect-error doesn't like me mocking a typeguard
+		CreatureLogic.isMonster = vi.fn().mockReturnValue(true);
+		CreatureLogic.getCharacteristic = vi.fn().mockImplementation((_creature, ch: Characteristic) => characteristics[ch] ?? 0);
+	};
+
+	beforeEach(() => {
+		// @ts-expect-error doesn't like me mocking a typeguard
+		CreatureLogic.isHero = vi.fn().mockReturnValue(false);
+		// @ts-expect-error doesn't like me mocking a typeguard
+		CreatureLogic.isMonster = vi.fn().mockReturnValue(false);
+	});
+
+	it('should use the stated bonus when the roll has no characteristic', () => {
+		const ability = createAbility({ bonus: 5, tier1: '16 damage; M < 4 the target loses 1d3 recoveries' });
+		expect(AbilityLogic.getPowerRollBonusValue(ability, monster)).toBe(5);
+	});
+
+	it('should use a monster\'s highest characteristic when no bonus is stated', () => {
+		mockMonster({ [Characteristic.Might]: 2, [Characteristic.Agility]: 1, [Characteristic.Reason]: 4, [Characteristic.Intuition]: 4, [Characteristic.Presence]: 2 });
+
+		const ability = createAbility({ tier1: '3 damage; M < 2 push (see effect)' });
+		expect(AbilityLogic.getPowerRollBonusValue(ability, monster)).toBe(4);
+	});
+
+	it('should prefer a stated bonus to a monster\'s highest characteristic', () => {
+		mockMonster({ [Characteristic.Might]: 5 });
+
+		const ability = createAbility({ bonus: 4, tier1: '3 damage' });
+		expect(AbilityLogic.getPowerRollBonusValue(ability, monster)).toBe(4);
+	});
+
+	it('should infer the bonus from the potency when there is no creature to read it from', () => {
+		const ability = createAbility({ tier1: '7 cold damage; P<3 slowed (save ends)' });
+		expect(AbilityLogic.getPowerRollBonusValue(ability, undefined)).toBe(3);
+	});
+
+	it('should infer the bonus from a potency written with spaces around the comparator', () => {
+		const ability = createAbility({ tier1: '7 cold damage; P < 3 slowed (save ends)' });
+		expect(AbilityLogic.getPowerRollBonusValue(ability, undefined)).toBe(3);
+	});
+
+	it('should fall back to the echelon 1 minimum with no bonus, no creature and no potency', () => {
+		const ability = createAbility({ tier1: '6 damage; vertical push 3' });
+		expect(AbilityLogic.getPowerRollBonusValue(ability, undefined)).toBe(2);
+	});
+
+	it('should use the creature characteristic in preference to a stated bonus', () => {
+		CreatureLogic.getCharacteristic = vi.fn().mockReturnValue(3);
+
+		const ability = createAbility({ characteristic: Characteristic.Reason, bonus: 5, tier1: '5 corruption damage' });
+		expect(AbilityLogic.getPowerRollBonusValue(ability, monster)).toBe(3);
 	});
 });

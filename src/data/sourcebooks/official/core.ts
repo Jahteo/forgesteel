@@ -211,6 +211,7 @@ export const core: Sourcebook = {
 		DomainData.war
 	],
 	encounters: [],
+	extensions: [],
 	imbuements: [
 		ImbuedArmorData.aweCharming,
 		ImbuedArmorData.aweThreatening,
@@ -562,7 +563,9 @@ export const core: Sourcebook = {
 		ProjectData.discoverLore,
 		ProjectData.goUndercover,
 		ProjectData.honeCareerSkills,
-		ProjectData.learnFromMaster,
+		ProjectData.learnFromMaster1,
+		ProjectData.learnFromMaster2,
+		ProjectData.learnFromMaster3,
 		ProjectData.learnNewLanguage,
 		ProjectData.learnNewSkill,
 		ProjectData.perfectNewRecipe,

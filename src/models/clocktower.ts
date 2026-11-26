@@ -4,6 +4,7 @@ import { ClocktowerTeam } from '@/enums/clocktower-team';
 export interface ClocktowerSpecial {
 	name: string;
 	type: string;
+	value?: string | number;
 }
 
 export interface ClocktowerJinx {
@@ -15,9 +16,9 @@ export interface ClocktowerRole {
 	id: string;
 	name: string;
 	edition?: string;
-	image?: string[];
+	image: string[];
 	team: ClocktowerTeam;
-	flavor?: string;
+	flavor: string;
 	ability: string;
 	firstNight?: number;
 	firstNightReminder?: string;
@@ -42,14 +43,14 @@ export interface ClocktowerCharacter {
 export interface ClocktowerScriptMeta {
 	id: '_meta';
 	name: string;
-	author?: string;
-	logo?: string;
-	hideTitle?: false;
-	background?: string;
-	almanac?: string;
-	bootlegger?: string[];
-	firstNight?: string[];
-	otherNight?: string[];
+	author: string;
+	logo: string;
+	background: string | undefined;
+	hideTitle: boolean;
+	almanac: string;
+	bootlegger: string[] | undefined;
+	firstNight: string[];
+	otherNight: string[];
 }
 
 export interface ClocktowerScript {

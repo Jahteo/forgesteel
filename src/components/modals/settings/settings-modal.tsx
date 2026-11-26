@@ -77,6 +77,13 @@ export const SettingsModal = (props: Props) => {
 			saveOptions(copy);
 		};
 
+		const setShow3DDice = (value: boolean) => {
+			const copy = Utils.copy(options);
+			copy.show3DDice = value;
+			setOptions(copy);
+			saveOptions(copy);
+		};
+
 		return (
 			<Expander title='Appearance'>
 				<Space orientation='vertical' style={{ width: '100%' }}>
@@ -91,6 +98,7 @@ export const SettingsModal = (props: Props) => {
 						]}
 					/>
 					<Toggle label='Show data source' value={options.showDataSource} onChange={setShowDataSource} />
+					<Toggle label='Show 3D dice when rolling' value={options.show3DDice} onChange={setShow3DDice} />
 				</Space>
 			</Expander>
 		);
@@ -621,6 +629,23 @@ export const SettingsModal = (props: Props) => {
 		);
 	};
 
+	const getHomebrewing = () => {
+		const setShowClipboardOptions = (value: boolean) => {
+			const copy = Utils.copy(options);
+			copy.showClipboardOptions = value;
+			setOptions(copy);
+			saveOptions(copy);
+		};
+
+		return (
+			<Expander title='Homebrewing'>
+				<Space orientation='vertical' style={{ width: '100%' }}>
+					<Toggle label='Show clipboard buttons' value={options.showClipboardOptions} onChange={setShowClipboardOptions} />
+				</Space>
+			</Expander>
+		);
+	};
+
 	const getConnections = () => {
 		const getWarehouseConnection = () => {
 			if (FeatureFlags.hasFlag(FeatureFlags.warehouse.code)) {
@@ -694,7 +719,7 @@ export const SettingsModal = (props: Props) => {
 					{
 						FeatureFlags.active().map(flag => (
 							<div key={flag.code} className='feature-flag'>
-								<FlagFilled style={{ color: 'rgb(64, 150, 255)' }} />
+								<FlagFilled style={{ color: 'var(--fs-accent-light)' }} />
 								<div className='ds-text' style={{ flex: '1 1 0' }}>{flag.description}</div>
 								<DangerButton
 									mode='clear'
@@ -731,6 +756,7 @@ export const SettingsModal = (props: Props) => {
 						{getEncounterRunner()}
 						{getDifficulty()}
 						{getTacticalMaps()}
+						{getHomebrewing()}
 						{getConnections()}
 					</Space>
 				);
