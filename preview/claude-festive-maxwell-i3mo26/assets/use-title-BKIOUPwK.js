@@ -1,1 +1,0 @@
-import{i as e}from"./rolldown-runtime-COiEfhsA.js";import{zr as t}from"./error-boundary-BKM4UPbN.js";var n=e(t(),1),r=e=>{(0,n.useEffect)(()=>{let t=document?.title||`Forge Steel`;return document&&document.title!==e&&(document.title=`Forge Steel - ${e}`),()=>{document.title=t||`Forge Steel`}},[e])};export{r as t};
