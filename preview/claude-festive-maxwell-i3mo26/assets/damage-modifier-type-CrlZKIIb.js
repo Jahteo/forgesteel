@@ -1,0 +1,1 @@
+var e=function(e){return e.Immunity=`Immunity`,e.Weakness=`Weakness`,e}({});export{e as t};

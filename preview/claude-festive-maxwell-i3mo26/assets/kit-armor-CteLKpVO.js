@@ -1,0 +1,1 @@
+var e=function(e){return e.Light=`Light Armor`,e.Medium=`Medium Armor`,e.Heavy=`Heavy Armor`,e.Shield=`Shield`,e}({});export{e as t};

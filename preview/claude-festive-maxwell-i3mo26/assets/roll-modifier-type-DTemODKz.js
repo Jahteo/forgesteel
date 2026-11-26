@@ -1,0 +1,1 @@
+var e=function(e){return e.Edge=`Edge`,e.DoubleEdge=`Double Edge`,e.Bane=`Bane`,e.DoubleBane=`Double Bane`,e}({});export{e as t};

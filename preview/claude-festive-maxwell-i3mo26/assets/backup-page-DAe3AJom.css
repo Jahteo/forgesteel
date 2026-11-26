@@ -1,0 +1,1 @@
+.backup-page{flex-direction:column;height:100%;display:flex}.backup-page .backup-page-content{background-color:var(--fs-canvas);grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;height:100%;padding:50px;display:grid;overflow-y:auto}

@@ -1,0 +1,1 @@
+var e=function(e){return e.Benevolence=`Benevolence`,e.Discovery=`Discovery`,e.Freedom=`Freedom`,e.Greed=`Greed`,e.HigherAuthority=`Higher Authority`,e.Justice=`Justice`,e.Legacy=`Legacy`,e.Peace=`Peace`,e.Power=`Power`,e.Protection=`Protection`,e.Revelry=`Revelry`,e.Vengeance=`Vengeance`,e}({});export{e as t};
