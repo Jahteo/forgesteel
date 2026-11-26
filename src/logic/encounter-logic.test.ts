@@ -113,3 +113,88 @@ describe('removeMonsterFromSlot', () => {
 		expect(slot.monsters.length).toBe(4);
 	});
 });
+
+describe('setSlotDefeated / clearDefeatedCaptains', () => {
+	const createMonster = (id: string, organization: MonsterOrganizationType) => FactoryLogic.createMonster({
+		id: id,
+		name: id,
+		level: 1,
+		role: FactoryLogic.createMonsterRole(organization),
+		keywords: [],
+		encounterValue: 1,
+		size: FactoryLogic.createSize(1, 'M'),
+		speed: FactoryLogic.createSpeed(5),
+		stamina: 5,
+		stability: 0,
+		freeStrikeDamage: 1,
+		characteristics: FactoryLogic.createCharacteristics(0, 0, 0, 0, 0),
+		features: []
+	});
+
+	// One group with a captain, and a squad of three minions led by that captain
+	const createEncounter = () => {
+		const captain = createMonster('captain', MonsterOrganizationType.Platoon);
+		const captainSlot = FactoryLogic.createEncounterSlotFromMonster(captain);
+
+		const minion = createMonster('minion', MonsterOrganizationType.Minion);
+		const squad = FactoryLogic.createEncounterSlotFromMonster(minion);
+		while (squad.monsters.length < 3) {
+			const m = Utils.copy(minion);
+			m.id = Utils.guid();
+			squad.monsters.push(m);
+		}
+		squad.state.captainID = captainSlot.monsters[0].id;
+
+		const group = FactoryLogic.createEncounterGroup();
+		group.slots = [ captainSlot, squad ];
+
+		const encounter = FactoryLogic.createEncounter();
+		encounter.groups = [ group ];
+		return { encounter, captainSlot, squad };
+	};
+
+	test('defeating a slot defeats every monster in it', () => {
+		const { squad } = createEncounter();
+
+		EncounterLogic.setSlotDefeated(squad, true);
+
+		expect(squad.state.defeated).toBe(true);
+		expect(squad.monsters.every(m => m.state.defeated)).toBe(true);
+	});
+
+	test('reviving a slot leaves individual monsters as they were', () => {
+		const { squad } = createEncounter();
+		EncounterLogic.setSlotDefeated(squad, true);
+
+		EncounterLogic.setSlotDefeated(squad, false);
+
+		expect(squad.state.defeated).toBe(false);
+		expect(squad.monsters.every(m => m.state.defeated)).toBe(true);
+	});
+
+	test('keeps a captain who is still standing', () => {
+		const { encounter, captainSlot, squad } = createEncounter();
+
+		EncounterLogic.clearDefeatedCaptains(encounter);
+
+		expect(squad.state.captainID).toBe(captainSlot.monsters[0].id);
+	});
+
+	test('removes a captain who has been defeated', () => {
+		const { encounter, captainSlot, squad } = createEncounter();
+		captainSlot.monsters[0].state.defeated = true;
+
+		EncounterLogic.clearDefeatedCaptains(encounter);
+
+		expect(squad.state.captainID).toBeUndefined();
+	});
+
+	test('removes a captain who is no longer in the encounter', () => {
+		const { encounter, squad } = createEncounter();
+		encounter.groups[0].slots = [ squad ];
+
+		EncounterLogic.clearDefeatedCaptains(encounter);
+
+		expect(squad.state.captainID).toBeUndefined();
+	});
+});

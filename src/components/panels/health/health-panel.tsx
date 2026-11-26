@@ -9,6 +9,7 @@ import { DamageModifierType } from '@/enums/damage-modifier-type';
 import { DropdownButton } from '@/components/controls/dropdown-button/dropdown-button';
 import { Empty } from '@/components/controls/empty/empty';
 import { Encounter } from '@/models/encounter';
+import { EncounterLogic } from '@/logic/encounter-logic';
 import { EncounterSlot } from '@/models/encounter';
 import { ExtractedCondition } from '@/logic/condition-extraction-logic';
 import { Field } from '@/components/controls/field/field';
@@ -439,11 +440,7 @@ export const MinionGroupHealthPanel = (props: MinionGroupProps) => {
 
 	const setDefeated = (value: boolean) => {
 		const copy = Utils.copy(slot);
-		copy.state.defeated = value;
-		if (value) {
-			// If the group is defeated, all minions are defeated
-			copy.monsters.forEach(m => m.state.defeated = true);
-		}
+		EncounterLogic.setSlotDefeated(copy, value);
 		setSlot(copy);
 		if (props.onChange) {
 			props.onChange(copy);

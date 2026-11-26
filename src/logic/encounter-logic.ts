@@ -291,6 +291,31 @@ export class EncounterLogic {
 		slot.monsters = slot.monsters.filter(m => m.id !== monsterID);
 	};
 
+	// Marks a slot as defeated (or not); defeating a slot defeats every monster in it
+	static setSlotDefeated = (slot: EncounterSlot, value: boolean) => {
+		slot.state.defeated = value;
+		if (value) {
+			slot.monsters.forEach(m => m.state.defeated = true);
+		}
+	};
+
+	// Makes sure no minion squad has a defeated (or missing) captain
+	static clearDefeatedCaptains = (encounter: Encounter) => {
+		const captainIDs = encounter.groups
+			.flatMap(g => g.slots)
+			.flatMap(s => s.monsters)
+			.filter(m => m.role.organization !== MonsterOrganizationType.Minion)
+			.filter(m => !m.state.defeated)
+			.map(m => m.id);
+		encounter.groups.forEach(g => {
+			g.slots.forEach(s => {
+				if (s.state.captainID && !captainIDs.includes(s.state.captainID)) {
+					s.state.captainID = undefined;
+				}
+			});
+		});
+	};
+
 	static isGroupDefeated = (group: EncounterGroup) => {
 		return group.slots.every(s => s.state.defeated) || group.slots.flatMap(s => s.monsters).every(m => m.state.defeated);
 	};

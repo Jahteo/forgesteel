@@ -32,7 +32,6 @@ import { Monster } from '@/models/monster';
 import { MonsterGroup } from '@/models/monster-group';
 import { MonsterLogic } from '@/logic/monster-logic';
 import { MonsterModal } from '@/components/modals/monster/monster-modal';
-import { MonsterOrganizationType } from '@/enums/monster-organization-type';
 import { MonsterPanel } from '@/components/panels/elements/monster-panel/monster-panel';
 import { MonsterSelectModal } from '@/components/modals/select/monster-select/monster-select-modal';
 import { NumberSpin } from '@/components/controls/number-spin/number-spin';
@@ -94,56 +93,14 @@ export const EncounterRunPanel = (props: Props) => {
 		props.onChange(copy);
 	};
 
-	const toggleMonsterDefeated = (monster: Monster) => {
+	const setSlotDefeated = (slot: EncounterSlot, value: boolean) => {
 		const copy = Utils.copy(encounter);
-		const newDefeated = !monster.state.defeated;
-
 		[
 			...copy.groups.flatMap(g => g.slots),
 			...copy.heroes.flatMap(h => h.state.controlledSlots)
-		].forEach(slot => {
-			const index = slot.monsters.findIndex(m => m.id === monster.id);
-			if (index !== -1) {
-				slot.monsters[index].state.defeated = newDefeated;
-			}
-		});
-
-		if (newDefeated) {
-			const captainIDs = copy.groups
-				.flatMap(g => g.slots)
-				.flatMap(s => s.monsters)
-				.filter(m => m.role.organization !== MonsterOrganizationType.Minion)
-				.filter(m => !m.state.defeated)
-				.map(m => m.id);
-			copy.groups.forEach(g => {
-				g.slots.forEach(s => {
-					if (s.state.captainID && !captainIDs.includes(s.state.captainID)) {
-						s.state.captainID = undefined;
-					}
-				});
-			});
-		}
-
-		setEncounter(copy);
-		props.onChange(copy);
-	};
-
-	const toggleMinionSlotDefeated = (slot: EncounterSlot) => {
-		const copy = Utils.copy(encounter);
-		const newDefeated = !slot.state.defeated;
-
-		[
-			...copy.groups.flatMap(g => g.slots),
-			...copy.heroes.flatMap(h => h.state.controlledSlots)
-		].forEach(s => {
-			if (s.id === slot.id) {
-				s.state.defeated = newDefeated;
-				if (newDefeated) {
-					s.monsters.forEach(m => m.state.defeated = true);
-				}
-			}
-		});
-
+		]
+			.filter(s => s.id === slot.id)
+			.forEach(s => EncounterLogic.setSlotDefeated(s, value));
 		setEncounter(copy);
 		props.onChange(copy);
 	};
@@ -317,6 +274,7 @@ export const EncounterRunPanel = (props: Props) => {
 					.flatMap(s => s.monsters)
 					.filter(m => m.id === monster.id)
 					.forEach(m => m.state.defeated = value);
+				EncounterLogic.clearDefeatedCaptains(copy);
 				setEncounter(copy);
 				props.onChange(copy);
 			};
@@ -407,8 +365,7 @@ export const EncounterRunPanel = (props: Props) => {
 						setSelectedMonster({ monster: monster, monsterGroup: monsterGroup, isFriendly: group.faction === FactionType.Ally });
 					}}
 					onSelectMinionSlot={setSelectedMinionSlot}
-					onToggleDefeated={toggleMonsterDefeated}
-					onToggleMinionSlotDefeated={toggleMinionSlotDefeated}
+					onSetSlotDefeated={setSlotDefeated}
 					onSetName={(_group, value) => setGroupName(value)}
 					onSetFaction={(_group, value) => setGroupFaction(value)}
 					onSetState={(_group, value) => setGroupEncounterState(value)}
@@ -517,6 +474,7 @@ export const EncounterRunPanel = (props: Props) => {
 					.filter(m => m.id === monster.id)
 					.forEach(m => m.state.defeated = value);
 				setEncounter(copy);
+				props.onChange(copy);
 			};
 
 			const setMonsterHidden = (monster: Monster, value: boolean) => {
@@ -528,6 +486,7 @@ export const EncounterRunPanel = (props: Props) => {
 					.filter(m => m.id === monster.id)
 					.forEach(m => m.state.hidden = value);
 				setEncounter(copy);
+				props.onChange(copy);
 			};
 
 			return (
@@ -542,8 +501,7 @@ export const EncounterRunPanel = (props: Props) => {
 						setSelectedMonster({ monster: monster, monsterGroup: group, isFriendly: true });
 					}}
 					onSelectMinionSlot={setSelectedMinionSlot}
-					onToggleDefeated={toggleMonsterDefeated}
-					onToggleMinionSlotDefeated={toggleMinionSlotDefeated}
+					onSetSlotDefeated={setSlotDefeated}
 					onSetState={setEncounterState}
 					onAddSquad={addSquad}
 					onAddMonsterToSquad={addMonsterToSquad}
@@ -1043,19 +1001,7 @@ export const EncounterRunPanel = (props: Props) => {
 								});
 
 								// Make sure no minion groups have a dead captain
-								const captainIDs = copy.groups
-									.flatMap(g => g.slots)
-									.flatMap(s => s.monsters)
-									.filter(m => m.role.organization !== MonsterOrganizationType.Minion)
-									.filter(m => !m.state.defeated)
-									.map(m => m.id);
-								copy.groups.forEach(g => {
-									g.slots.forEach(s => {
-										if (s.state.captainID && !captainIDs.includes(s.state.captainID)) {
-											s.state.captainID = undefined;
-										}
-									});
-								});
+								EncounterLogic.clearDefeatedCaptains(copy);
 
 								setEncounter(copy);
 								props.onChange(copy);

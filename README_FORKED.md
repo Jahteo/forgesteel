@@ -15,15 +15,21 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 **PR:** [#14](https://github.com/jahteo/forgesteel/pull/14) — `claude/festive-maxwell-i3mo26`
 
-Merges 218 upstream commits into the fork. Upstream reworked the encounter group panel and added its own per-monster Defeated/Active/Hidden popover (`…` menu); the fork's one-click dead/alive toggle buttons are kept alongside it as optional `MonsterSlot` props.
+Merges 218 upstream commits into the fork. Upstream reworked the encounter group panel and added its own per-monster Defeated/Active/Hidden popover (`…` menu). The fork's one-click dead/alive toggle is kept alongside it, but now reuses upstream's code: the per-monster button calls upstream's `onSetDefeated`, so the only fork-specific prop left is `onSetSlotDefeated` for the minion-squad button. Also fixes two upstream bugs found along the way: defeating a captain from the `…` menu didn't clear it from its minion squad, and defeated/hidden changes to hero-controlled monsters weren't saved.
 
 **How to test:**
 1. Run `npm install`, then `npx vite --host` and open http://localhost:5173
 2. Open an encounter and run it
 3. Check that the one-click toggle (✕ / ✓ icon) on monster rows and minion squads still flips defeated state, and that upstream's `…` popover on each monster also works
+4. Make a monster captain of a minion squad, defeat the captain (via either the ✕ button or the `…` menu), and check the squad shows "No captain"
+5. Defeat a minion squad with its ✕ button and check every minion in it is struck through; reload and check it's still defeated
 
 **Files changed:**
-- `src/components/panels/encounter-group/encounter-group-panel.tsx` — took upstream layout; re-applied fork's `onToggleDefeated` / `onToggleMinionSlotDefeated` buttons
+- `src/components/panels/encounter-group/encounter-group-panel.tsx` — took upstream layout; one-click buttons now call upstream's `onSetDefeated` (per monster) and a new `onSetSlotDefeated` prop (minion squad)
+- `src/components/panels/run/encounter-run/encounter-run-panel.tsx` — removed fork's `toggleMonsterDefeated` / `toggleMinionSlotDefeated`; added `setSlotDefeated`; upstream's `setDefeated` now clears defeated captains; hero-controlled `setMonsterDefeated` / `setMonsterHidden` now call `props.onChange`
+- `src/logic/encounter-logic.ts` — new shared helpers `setSlotDefeated` and `clearDefeatedCaptains` (the latter replaces a duplicated inline block)
+- `src/components/panels/health/health-panel.tsx` — minion-squad defeat uses `EncounterLogic.setSlotDefeated`
+- `src/logic/encounter-logic.test.ts` — tests for the two new helpers
 - `package.json` / `package-lock.json` — took upstream dependencies; kept fork's `claude-screenshot-for-pr` / `claude-record-demo-for-pr` scripts plus `tsx` and `@playwright/test`; dropped unused `puppeteer`; added `@types/node` (needed by the fork's `vite.config.ts`, previously pulled in transitively)
 - `.gitignore` — kept both sides' entries
 
@@ -33,7 +39,7 @@ Merges 218 upstream commits into the fork. Upstream reworked the encounter group
 |--------|-------|
 | ![Before](https://raw.githubusercontent.com/jahteo/forgesteel/claude/festive-maxwell-i3mo26/screenshots/before.png) | ![After](https://raw.githubusercontent.com/jahteo/forgesteel/claude/festive-maxwell-i3mo26/screenshots/after.png) |
 
-**Upstream PR notes:** Fork-only sync; nothing to upstream. Upstream's new popover covers most of what the one-click toggle did — consider whether to keep the toggle or drop it in favour of upstream's UI.
+**Upstream PR notes:** The sync itself is fork-only. The two bug fixes (captain clean-up in the `…` menu path, missing `props.onChange` for hero-controlled monsters) and the `EncounterLogic` helpers are good upstream candidates on their own; the one-click toggle could follow as a small optional "quick defeat" PR.
 
 ### Multi-branch GitHub Pages preview deployments
 

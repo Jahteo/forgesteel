@@ -48,8 +48,7 @@ interface EncounterGroupHeroProps {
 	onSelect: (hero: Hero) => void;
 	onSelectMonster: (monster: Monster, monsterGroupID: string) => void;
 	onSelectMinionSlot: (slot: EncounterSlot) => void;
-	onToggleDefeated: (monster: Monster) => void;
-	onToggleMinionSlotDefeated: (slot: EncounterSlot) => void;
+	onSetSlotDefeated: (slot: EncounterSlot, value: boolean) => void;
 	onSetState: (hero: Hero, value: 'ready' | 'current' | 'finished') => void;
 	onAddSquad: (hero: Hero, monster: Monster, count: number) => void;
 	onRemoveSquad: (hero: Hero, slotID: string) => void;
@@ -270,8 +269,7 @@ export const EncounterGroupHero = (props: EncounterGroupHeroProps) => {
 									onSelectMonster={props.onSelectMonster}
 									onSelectMinionSlot={props.onSelectMinionSlot}
 									onSetDefeated={props.onSetMonsterDefeated}
-									onToggleDefeated={props.onToggleDefeated}
-									onToggleMinionSlotDefeated={props.onToggleMinionSlotDefeated}
+									onSetSlotDefeated={props.onSetSlotDefeated}
 									onSetHidden={props.onSetMonsterHidden}
 									onRemove={monster => props.onRemoveMonsterFromSquad(props.hero, slot.id, monster.id)}
 								/>
@@ -292,8 +290,7 @@ interface EncounterGroupMonsterProps {
 	sourcebooks: Sourcebook[];
 	onSelectMonster: (monster: Monster, monsterGroupID: string) => void;
 	onSelectMinionSlot: (slot: EncounterSlot) => void;
-	onToggleDefeated: (monster: Monster) => void;
-	onToggleMinionSlotDefeated: (slot: EncounterSlot) => void;
+	onSetSlotDefeated: (slot: EncounterSlot, value: boolean) => void;
 	onSetName: (group: EncounterGroup, value: string) => void;
 	onSetFaction: (group: EncounterGroup, value: FactionType) => void;
 	onSetState: (group: EncounterGroup, value: 'ready' | 'current' | 'finished') => void;
@@ -400,8 +397,7 @@ export const EncounterGroupMonster = (props: EncounterGroupMonsterProps) => {
 							onSelectMonster={props.onSelectMonster}
 							onSelectMinionSlot={props.onSelectMinionSlot}
 							onSetDefeated={props.onSetDefeated}
-							onToggleDefeated={props.onToggleDefeated}
-							onToggleMinionSlotDefeated={props.onToggleMinionSlotDefeated}
+							onSetSlotDefeated={props.onSetSlotDefeated}
 							onSetHidden={props.onSetHidden}
 							onRemove={monster => props.onRemoveMonster(slot, monster)}
 						/>
@@ -418,8 +414,7 @@ interface MonsterSlotProps {
 	sourcebooks: Sourcebook[];
 	onSelectMonster: (monster: Monster, monsterGroupID: string) => void;
 	onSelectMinionSlot: (slot: EncounterSlot) => void;
-	onToggleDefeated?: (monster: Monster) => void;
-	onToggleMinionSlotDefeated?: (slot: EncounterSlot) => void;
+	onSetSlotDefeated: (slot: EncounterSlot, value: boolean) => void;
 	onSetDefeated: (monster: Monster, value: boolean) => void;
 	onSetHidden: (monster: Monster, value: boolean) => void;
 	onRemove: (monster: Monster) => void;
@@ -557,20 +552,16 @@ export const MonsterSlot = (props: MonsterSlotProps) => {
 									{props.slot.state.conditions.map(getConditionTag)}
 								</Flex>
 							</div>
-							{
-								props.onToggleMinionSlotDefeated ?
-									<Tooltip title={props.slot.state.defeated ? 'Mark as alive' : 'Mark as defeated'}>
-										<Button
-											type='text'
-											icon={props.slot.state.defeated ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-											onClick={e => {
-												e.stopPropagation();
-												props.onToggleMinionSlotDefeated!(props.slot);
-											}}
-										/>
-									</Tooltip>
-									: null
-							}
+							<Tooltip title={props.slot.state.defeated ? 'Mark as alive' : 'Mark as defeated'}>
+								<Button
+									type='text'
+									icon={props.slot.state.defeated ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+									onClick={e => {
+										e.stopPropagation();
+										props.onSetSlotDefeated(props.slot, !props.slot.state.defeated);
+									}}
+								/>
+							</Tooltip>
 						</div>
 						<Button
 							type='text'
@@ -660,20 +651,16 @@ export const MonsterSlot = (props: MonsterSlotProps) => {
 										{monster.state.conditions.map(getConditionTag)}
 									</Flex>
 								</div>
-								{
-									props.onToggleDefeated ?
-										<Tooltip title={monster.state.defeated ? 'Mark as alive' : 'Mark as defeated'}>
-											<Button
-												type='text'
-												icon={monster.state.defeated ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
-												onClick={e => {
-													e.stopPropagation();
-													props.onToggleDefeated!(monster);
-												}}
-											/>
-										</Tooltip>
-										: null
-								}
+								<Tooltip title={monster.state.defeated ? 'Mark as alive' : 'Mark as defeated'}>
+									<Button
+										type='text'
+										icon={monster.state.defeated ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+										onClick={e => {
+											e.stopPropagation();
+											props.onSetDefeated(monster, !monster.state.defeated);
+										}}
+									/>
+								</Tooltip>
 							</div>
 							<Popover
 								trigger='click'
