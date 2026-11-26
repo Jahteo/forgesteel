@@ -1,19 +1,19 @@
-import { ButtonConfig, ButtonGroup, DropdownConfig } from '@/components/controls/button-group/button-group';
-import { CheckCircleOutlined, CopyOutlined, WarningOutlined } from '@ant-design/icons';
 import { ClocktowerCharacter, ClocktowerScript } from '@/models/clocktower';
-import { Drawer, Tabs, notification } from 'antd';
-import { ReactNode, useState } from 'react';
+import { Drawer, Flex, Space, Tabs } from 'antd';
 import { ClocktowerCharacterPanel } from '@/components/pages/clocktower/clocktower-character-panel/clocktower-character-panel';
 import { ClocktowerLogic } from '@/logic/clocktower-logic';
 import { ClocktowerScriptType } from '@/enums/clocktower-script-type';
 import { ClocktowerTeam } from '@/enums/clocktower-team';
+import { ClocktowerToken } from '@/components/pages/clocktower/clocktower-token/clocktower-token';
 import { Empty } from '@/components/controls/empty/empty';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
 import { Field } from '@/components/controls/field/field';
 import { HeaderText } from '@/components/controls/header-text/header-text';
+import { Markdown } from '@/components/controls/markdown/markdown';
 import { Modal } from '@/components/modals/modal/modal';
 import { SelectablePanel } from '@/components/controls/selectable-panel/selectable-panel';
 import { StatsRow } from '@/components/panels/stats-row/stats-row';
+import { useState } from 'react';
 
 import './clocktower-script-panel.scss';
 
@@ -23,56 +23,6 @@ interface Props {
 
 export const ClocktowerScriptPanel = (props: Props) => {
 	const [ selectedCharacter, setSelectedCharacter ] = useState<ClocktowerCharacter | null>(null);
-	const [ notify, notifyContext ] = notification.useNotification();
-
-	const copyToClipboard = () => {
-		const data = ClocktowerLogic.createExportScript(props.script);
-		const json = JSON.stringify(data);
-		window.navigator.clipboard.writeText(json);
-
-		notify.info({
-			title: 'Script Copied',
-			description: 'This script has been copied into your clipboard. You can now import it into the BotC app.',
-			placement: 'top'
-		});
-	};
-
-	const getTabs = () => {
-		const tabs: { key: string, label: string, children: ReactNode }[] = [];
-
-		[
-			ClocktowerTeam.Townsfolk,
-			ClocktowerTeam.Outsider,
-			ClocktowerTeam.Minion,
-			ClocktowerTeam.Demon,
-			ClocktowerTeam.Traveller,
-			ClocktowerTeam.Fabled,
-			ClocktowerTeam.Loric
-		]
-			.forEach(team => {
-				const count = ClocktowerLogic.getTeamCount(props.script, team);
-				if (count > 0) {
-					tabs.push({
-						key: team,
-						label: ClocktowerLogic.getTeamName(team),
-						children: getCharactersSection(team)
-					});
-				}
-			});
-
-		tabs.push({
-			key: 'first-night',
-			label: 'First Night',
-			children: getNightSection(true)
-		});
-		tabs.push({
-			key: 'other-nights',
-			label: 'Other Nights',
-			children: getNightSection(false)
-		});
-
-		return tabs;
-	};
 
 	const getCharactersSection = (team: ClocktowerTeam) => {
 		const characters = props.script.characters.filter(ch => ch.role.team === team);
@@ -81,9 +31,17 @@ export const ClocktowerScriptPanel = (props: Props) => {
 			<div className='roles-section'>
 				{
 					characters.map(ch => (
-						<SelectablePanel key={ch.role.id} onSelect={() => setSelectedCharacter(ch)}>
-							<HeaderText>{ch.role.name}</HeaderText>
-							<div className='ds-text'>{ch.role.ability}</div>
+						<SelectablePanel
+							key={ch.role.id}
+							style={{ padding: '5px 10px' }}
+							onSelect={() => setSelectedCharacter(ch)}
+						>
+							<Flex gap={10}>
+								<div style={{ paddingTop: '10px' }}>
+									<ClocktowerToken character={ch} size={40} />
+								</div>
+								<Field label={ch.role.name} value={<Markdown text={ClocktowerLogic.getFormattedAbility(ch)} useSpan={true} />} />
+							</Flex>
 						</SelectablePanel>
 					))
 				}
@@ -101,18 +59,17 @@ export const ClocktowerScriptPanel = (props: Props) => {
 		const list = first ? meta.firstNight : meta.otherNight;
 
 		return (
-			<div className='night-section'>
+			<Flex vertical={true} align='flex-start'>
 				{
 					(list || []).map((id, n) => {
 						const character = props.script.characters.find(ch => ch.role.id === id);
 						if (character) {
 							const reminder = (first ? character.role.firstNightReminder : character.role.otherNightReminder) || '-';
 							return (
-								<Field
-									key={n}
-									label={character.role.name}
-									value={reminder}
-								/>
+								<Flex key={n} align='center' gap={10}>
+									<ClocktowerToken character={character} size={20} />
+									<Field label={character.role.name} value={reminder} />
+								</Flex>
 							);
 						}
 
@@ -128,30 +85,28 @@ export const ClocktowerScriptPanel = (props: Props) => {
 						<Empty />
 						: null
 				}
-			</div>
+			</Flex>
 		);
 	};
 
-	const issues = ClocktowerLogic.validate(props.script);
-	const buttons: (ButtonConfig | DropdownConfig)[] = [];
-	if (issues.length > 0) {
-		buttons.push({
-			type: 'dropdown',
-			icon: issues.length === 0 ? <CheckCircleOutlined /> : <WarningOutlined />,
-			disabled: issues.length === 0,
-			popover: (
-				<>
-					{issues.map((issue, n) => (<div key={n} className='ds-text'>{issue}</div>))}
-				</>
-			)
-		});
-	}
-	buttons.push({
-		type: 'button',
-		label: 'Copy',
-		icon: <CopyOutlined />,
-		onClick: copyToClipboard
-	});
+	const getJinxSection = () => {
+		const jinxes = ClocktowerLogic.getJinxes(props.script);
+
+		return (
+			<Space orientation='vertical' style={{ width: '100%' }}>
+				{
+					jinxes.map((j, n) => (
+						<Flex key={n} align='center' gap={5}>
+							<ClocktowerToken character={j.ch1} size={30} />
+							<ClocktowerToken character={j.ch2} size={30} />
+							{j.reason}
+						</Flex>
+					))
+				}
+				{jinxes.length === 0 ? <Empty /> : null}
+			</Space>
+		);
+	};
 
 	return (
 		<ErrorBoundary>
@@ -159,9 +114,6 @@ export const ClocktowerScriptPanel = (props: Props) => {
 				<HeaderText
 					level={1}
 					tags={props.script.type === ClocktowerScriptType.Teensyville ? [ 'Teensyville' ] : []}
-					extra={
-						<ButtonGroup buttons={buttons} />
-					}
 				>
 					{props.script.meta.name}
 				</HeaderText>
@@ -184,7 +136,63 @@ export const ClocktowerScriptPanel = (props: Props) => {
 							})
 					}
 				</StatsRow>
-				<Tabs items={getTabs()} />
+				<Tabs
+					items={[
+						{
+							key: 'characters',
+							label: 'Characters',
+							children: (
+								<>
+									{
+										[
+											ClocktowerTeam.Townsfolk,
+											ClocktowerTeam.Outsider,
+											ClocktowerTeam.Minion,
+											ClocktowerTeam.Demon,
+											ClocktowerTeam.Traveller,
+											ClocktowerTeam.Fabled,
+											ClocktowerTeam.Loric
+										]
+											.map(team => {
+												const count = ClocktowerLogic.getTeamCount(props.script, team);
+												if (count === 0) {
+													return null;
+												}
+
+												return (
+													<div key={team}>
+														<HeaderText>{ClocktowerLogic.getTeamName(team)}</HeaderText>
+														{getCharactersSection(team)}
+													</div>
+												);
+											})
+									}
+								</>
+							)
+						},
+						{
+							key: 'night-order',
+							label: 'Night Order',
+							children: (
+								<Flex gap={10}>
+									<SelectablePanel>
+										<HeaderText>First Night</HeaderText>
+										{getNightSection(true)}
+									</SelectablePanel>
+									<SelectablePanel>
+										<HeaderText>Other Nights</HeaderText>
+										{getNightSection(false)}
+									</SelectablePanel>
+								</Flex>
+							)
+						},
+						{
+							key: 'jinxes',
+							label: 'Jinxes',
+							children: getJinxSection()
+						}
+					]}
+				/>
 			</div>
 			<Drawer open={!!selectedCharacter} onClose={() => setSelectedCharacter(null)} closeIcon={null} size={500}>
 				<Modal
@@ -192,7 +200,6 @@ export const ClocktowerScriptPanel = (props: Props) => {
 					onClose={() => setSelectedCharacter(null)}
 				/>
 			</Drawer>
-			{notifyContext}
 		</ErrorBoundary>
 	);
 };

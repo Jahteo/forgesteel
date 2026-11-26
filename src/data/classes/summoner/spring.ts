@@ -14,6 +14,7 @@ export const circleOfSpring: SubClass = {
 	id: 'summoner-sub-3',
 	name: 'Circle of Spring',
 	description: 'You are a feybright who beckons pixies, nixies, and sprites from Arcadia. Your portfolio features ephemeral fey spirits surrounded by weird and powerful magic.',
+	classID: '',
 	featuresByLevel: [
 		{
 			level: 1,
@@ -135,15 +136,15 @@ You gain a bane on the test for each subsequent rumor you collect either on the 
 								name: 'Sprite Dandeknight',
 								description: 'Dandeknights are sprite warriors whose dragonfly wingbeats emit a tonal drone. They’re usually clad in tassels that shift color as they swing their weapons.',
 								level: 0,
-								role: FactoryLogic.createMonsterRole(MonsterOrganizationType.Minion, MonsterRoleType.Ambusher),
+								role: FactoryLogic.createMonsterRole(MonsterOrganizationType.Minion, MonsterRoleType.Harrier),
 								keywords: [],
 								encounterValue: 0,
-								size: FactoryLogic.createSize(1, 'M'),
+								size: FactoryLogic.createSize(1, 'T'),
 								speed: FactoryLogic.createSpeed(5),
-								stamina: 0,
+								stamina: 1,
 								stability: 0,
-								freeStrikeDamage: 0,
-								characteristics: FactoryLogic.createCharacteristics(0, 0, 0, 0, 0),
+								freeStrikeDamage: 1,
+								characteristics: FactoryLogic.createCharacteristics(2, 0, -1, -1, -1),
 								features: [
 									FactoryLogic.feature.create({
 										id: 'summoner-3-1-4c-1',
@@ -288,7 +289,7 @@ You gain a bane on the test for each subsequent rumor you collect either on the 
 								stamina: 8,
 								stability: 2,
 								freeStrikeDamage: 4,
-								characteristics: FactoryLogic.createCharacteristics(0, 2, -1, 1, 1),
+								characteristics: FactoryLogic.createCharacteristics(2, 0, -1, 1, 1),
 								features: [
 									FactoryLogic.feature.create({
 										id: 'summoner-3-1-5c-1',
@@ -607,7 +608,7 @@ If your speed previously had the Fly keyword, you can now fly while sneaking an 
 									FactoryLogic.feature.create({
 										id: 'summoner-3-5-3a-4',
 										name: 'Minuscule',
-										description: 'The coralia has cover while occupying a larger creature’s space.'
+										description: 'The corallia has cover while occupying a larger creature’s space.'
 									})
 								]
 							}),
@@ -707,7 +708,7 @@ If your speed previously had the Fly keyword, you can now fly while sneaking an 
 									FactoryLogic.feature.create({
 										id: 'summoner-3-5-3c-4',
 										name: 'Minuscule',
-										description: 'The oleyander has cover while occupying a larger creature’s space.'
+										description: 'The olyender has cover while occupying a larger creature’s space.'
 									})
 								]
 							}),
@@ -796,7 +797,7 @@ The celestial Attendant wants to swarm the map with pixies while limiting their 
 														tier3: '14 damage; slide 6'
 													})
 												),
-												FactoryLogic.createAbilitySectionText('An ally targeted by this ability can, instead, spend  Recovery and shift the slide amount.')
+												FactoryLogic.createAbilitySectionText('An ally targeted by this ability can, instead, spend a Recovery and shift the slide amount.')
 											]
 										})
 									}),

@@ -9,6 +9,7 @@ import { EncounterDifficultyLogic } from '@/logic/encounter-difficulty-logic';
 import { EncounterDifficultyPanel } from '@/components/panels/encounter-difficulty/encounter-difficulty-panel';
 import { EncounterLogic } from '@/logic/encounter-logic';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
+import { FactionType } from '@/enums/faction-type';
 import { FeaturePanel } from '@/components/panels/elements/feature-panel/feature-panel';
 import { FeatureType } from '@/enums/feature-type';
 import { Field } from '@/components/controls/field/field';
@@ -83,12 +84,9 @@ export const EncounterPanel = (props: Props) => {
 				{
 					groups.map((group, n) => (
 						<SelectablePanel key={group.id} style={{ paddingTop: '0' }}>
-							{
-								groups.length > 1 ?
-									<HeaderText>{group.name || `Group ${n + 1}`}</HeaderText>
-									:
-									<HeaderText>Monsters</HeaderText>
-							}
+							<HeaderText tags={group.faction === FactionType.Ally ? [ 'Ally' ] : []}>
+								{group.name || (groups.length > 1 ? `Group ${n + 1}` : 'Monsters')}
+							</HeaderText>
 							<Space orientation='vertical'>
 								{
 									group.slots.map(slot => {
@@ -203,7 +201,7 @@ export const EncounterPanel = (props: Props) => {
 		return (
 			<Space orientation='vertical' style={{ width: '100%' }}>
 				{
-					monsterGroups.filter(group => group.malice.length > 0).map(group => {
+					monsterGroups.map(group => {
 						let maxEchelon = 1;
 						props.encounter.groups.forEach(g => {
 							g.slots.forEach(s => {
@@ -215,22 +213,28 @@ export const EncounterPanel = (props: Props) => {
 							});
 						});
 
+						const malice = group.malice
+							.filter(m => {
+								let echelon = 1;
+								switch (m.type) {
+									case FeatureType.Malice:
+									case FeatureType.MaliceAbility:
+										echelon = m.data.echelon;
+										break;
+								}
+								return echelon <= maxEchelon;
+							})
+							.filter(m => !props.encounter.hiddenMaliceFeatures.includes(m.id));
+						if (malice.length === 0) {
+							return null;
+						}
+
 						return (
 							<div key={group.id}>
 								<HeaderText level={1}>{group.name} Malice</HeaderText>
 								<div className='encounter-malice'>
 									{
-										group.malice
-											.filter(m => {
-												let echelon = 1;
-												switch (m.type) {
-													case FeatureType.Malice:
-													case FeatureType.MaliceAbility:
-														echelon = m.data.echelon;
-														break;
-												}
-												return echelon <= maxEchelon;
-											})
+										malice
 											.map(m => {
 												let cost = undefined;
 												switch (m.type) {

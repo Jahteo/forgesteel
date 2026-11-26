@@ -80,10 +80,22 @@ export const ProjectPanel = (props: Props) => {
 
 		return (
 			<Space orientation='vertical' style={{ width: '100%' }}>
-				{project.itemPrerequisites ? <Field label='Item Prerequisites' value={props.project.itemPrerequisites} /> : null}
-				{project.itemPrerequisites && project.progress ? <Toggle label='Obtained Items' value={project.progress.prerequisites} onChange={setPrerequisites} /> : null}
-				{project.source ? <Field label='Source' value={props.project.source} /> : null}
-				{project.source && project.progress ? <Toggle label='Obtained Source' value={project.progress.source} onChange={setSource} /> : null}
+				{
+					project.itemPrerequisites ?
+						project.progress ?
+							<Toggle label={props.project.itemPrerequisites} value={project.progress.prerequisites} onChange={setPrerequisites} />
+							:
+							<Field label='Item Prerequisites' value={props.project.itemPrerequisites} />
+						: null
+				}
+				{
+					project.source ?
+						project.progress ?
+							<Toggle label={props.project.source} value={project.progress.source} onChange={setSource} />
+							:
+							<Field label='Source' value={props.project.source} />
+						: null
+				}
 			</Space>
 		);
 	};
@@ -316,7 +328,9 @@ export const ProjectPanel = (props: Props) => {
 					level={1}
 					tags={tags}
 					extra={
-						project.isCustom ?
+						// Any project the hero is working on can be edited - not just custom ones - so that
+						// several of the same project (learning two different skills, say) can be told apart
+						props.onChange ?
 							<Button type='text' icon={editing ? <CheckCircleOutlined /> : <EditOutlined />} onClick={() => setEditing(!editing)} />
 							: null
 					}

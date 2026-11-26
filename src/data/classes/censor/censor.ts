@@ -5,6 +5,7 @@ import { FactoryLogic } from '@/logic/factory-logic';
 import { FeatureField } from '@/enums/feature-field';
 import { HeroClass } from '@/models/class';
 import { PerkList } from '@/enums/perk-list';
+import { ResourceGainFrequency } from '@/enums/resource-gain-frequency';
 import { SkillList } from '@/enums/skill-list';
 import { exorcist } from '@/data/classes/censor/exorcist';
 import { oracle } from '@/data/classes/censor/oracle';
@@ -46,17 +47,23 @@ As a censor, you’re at your best against the strongest foes. Your judgment ter
 						{
 							tag: 'start',
 							trigger: 'Start of your turn',
-							value: '2'
+							value: '2',
+							frequency: ResourceGainFrequency.OncePerRound,
+							used: false
 						},
 						{
 							tag: 'take-damage',
-							trigger: 'The first time each round that a creature judged by you deals damage to you',
-							value: '1'
+							trigger: 'A creature judged by you deals damage to you',
+							value: '1',
+							frequency: ResourceGainFrequency.OncePerRound,
+							used: false
 						},
 						{
 							tag: 'deal-damage',
-							trigger: 'The first time each round that you deal damage to a creature judged by you',
-							value: '1'
+							trigger: 'You deal damage to a creature judged by you',
+							value: '1',
+							frequency: ResourceGainFrequency.OncePerRound,
+							used: false
 						}
 					]
 				}),
@@ -185,8 +192,9 @@ You can choose only one free triggered action option at a time, even if multiple
 					id: 'censor-4-4',
 					name: 'Wrath Beyond Wrath',
 					tag: 'deal-damage 2',
-					trigger: 'The first time each round that you deal damage to a creature judged by you',
+					trigger: 'You deal damage to a creature judged by you',
 					value: '2',
+					frequency: ResourceGainFrequency.OncePerRound,
 					replacesTags: [ 'deal-damage' ]
 				}),
 				FactoryLogic.feature.createDomainFeature({
@@ -263,6 +271,7 @@ You can choose only one free triggered action option at a time, even if multiple
 					tag: 'start 2',
 					trigger: 'Start of your turn',
 					value: '3',
+					frequency: ResourceGainFrequency.OncePerRound,
 					replacesTags: [ 'start' ]
 				}),
 				FactoryLogic.feature.createSkillChoice({
@@ -319,16 +328,18 @@ You can choose only one free triggered action option at a time, even if multiple
 					id: 'censor-10-3',
 					listOptions: [ SkillList.Crafting, SkillList.Exploration, SkillList.Interpersonal, SkillList.Lore, SkillList.Intrigue ]
 				}),
-				FactoryLogic.feature.create({
+				FactoryLogic.feature.createPackage({
 					id: 'censor-10-4',
 					name: 'Templar',
-					description: `You are the ultimate representation of your god’s justice in the timescape. Whenever you use your Judgment ability, you can use a free triggered action to use a conduit domain effect associated with your chosen domain, or a domain you access with virtue. If the effect calls for the use of your Intuition score, you use your Presence score instead. If the effect uses your conduit level, use your censor level instead.
+					description: `
+You are the ultimate representation of your god’s justice in the timescape. Whenever you use your Judgment ability, you can use a free triggered action to use a conduit domain effect associated with your chosen domain, or a domain you access with virtue. If the effect calls for the use of your Intuition score, you use your Presence score instead. If the effect uses your conduit level, use your censor level instead.
 
 Additionally, whenever you take a respite, you can open a portal to rest in the presence of your deity and bring along any allies. When you do, you can ask your deity three questions, which the Director must answer honestly if your deity knows the answers (though they might answer cryptically or incompletely). When you finish your respite, you and your allies can appear at any location in the timescape where someone worships your deity.
 
-While you rest in their presence, your god might also give you priority targets to enact justice upon. You and your allies each have a double edge on power rolls made against such targets. If you attempt to open a portal to your deity again before you have defeated your priority targets, you suffer your god’s wrath, as determined by the Director.	 
-  
-  				`
+While you rest in their presence, your god might also give you priority targets to enact justice upon. You and your allies each have a double edge on power rolls made against such targets. If you attempt to open a portal to your deity again before you have defeated your priority targets, you suffer your god’s wrath, as determined by the Director.
+
+  				`,
+					tag: 'conduit-prayer'
 				}),
 				FactoryLogic.feature.createHeroicResource({
 					id: 'censor-10-5',
@@ -336,9 +347,11 @@ While you rest in their presence, your god might also give you priority targets 
 					type: 'epic',
 					gains: [
 						{
-							tag: '',
+							tag: 'respite',
 							trigger: 'Finish a respite',
-							value: 'XP gained'
+							value: 'XP gained',
+							frequency: ResourceGainFrequency.AtWill,
+							used: false
 						}
 					],
 					description: `
@@ -346,12 +359,20 @@ You can spend 3 virtue to access one of your deity’s domains that you usually 
 
 Virtue remains until you spend it.`
 				}),
+				FactoryLogic.feature.createDomainChoice({
+					id: 'censor-10-5b',
+					description: 'You can spend 3 virtue to access one of your deity’s domains that you usually don’t have access to. When you do, you can use that domain’s features until you finish another respite.',
+					characteristic: Characteristic.Presence,
+					levels: [ 1, 4, 7 ],
+					selectAt: 'play'
+				}),
 				FactoryLogic.feature.createHeroicResourceGain({
 					id: 'censor-10-6',
 					name: 'Wrath of the Gods',
 					tag: 'start 3',
 					trigger: 'Start of your turn',
 					value: '4',
+					frequency: ResourceGainFrequency.OncePerRound,
 					replacesTags: [ 'start', 'start 2' ]
 				})
 			]

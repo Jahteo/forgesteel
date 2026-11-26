@@ -1,6 +1,7 @@
 import { ClocktowerCharacter, ClocktowerScript } from '@/models/clocktower';
+import { Divider, Flex } from 'antd';
 import { ClocktowerLogic } from '@/logic/clocktower-logic';
-import { Divider } from 'antd';
+import { ClocktowerToken } from '@/components/pages/clocktower/clocktower-token/clocktower-token';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
 import { Field } from '@/components/controls/field/field';
 import { Format } from '@/utils/format';
@@ -22,8 +23,7 @@ export const ClocktowerCharacterPanel = (props: Props) => {
 				return null;
 			}
 			return {
-				id: ch.role.id,
-				name: ch.role.name,
+				character: ch,
 				reason: j.reason
 			};
 		})
@@ -40,31 +40,25 @@ export const ClocktowerCharacterPanel = (props: Props) => {
 				>
 					{props.character.role.name}
 				</HeaderText>
-				{
-					!!props.character.role.image && (props.character.role.image.length > 0) ?
-						<div className='clocktower-token'>
-							<img className='clocktower-token-image' src={props.character.role.image[0]} />
-							<svg className='clocktower-token-text' viewBox='0 0 100 100'>
-								<defs>
-									<path id='arc' d='M 5,50 A 45,45 0 0 0 95,50' fill='none' />
-								</defs>
-								<text>
-									<textPath href='#arc' startOffset='50%' textAnchor='middle' fill='rgba(0, 0, 0, 0.7)'>
-										{props.character.role.name}
-									</textPath>
-								</text>
-							</svg>
-						</div>
-						: null
-				}
-				<div className='ds-text flavor-text'>
-					{`"${props.character.role.flavor}"`}
+				<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+					<ClocktowerToken character={props.character} size={150} flippable={true} />
+					<div className='ds-text flavor-text'>
+						{`"${props.character.role.flavor}"`}
+					</div>
 				</div>
 				<Divider />
-				<Field label='Ability' value={props.character.role.ability} />
+				<Field label='Ability' value={<Markdown text={ClocktowerLogic.getFormattedAbility(props.character)} useSpan={true} />} />
+				<Divider />
 				<Markdown text={props.character.details.description} />
 				{jinxes.length > 0 ? <HeaderText>Jinxes</HeaderText> : null}
-				{jinxes.map(j => <Field key={j.id} label={j.name} value={j.reason} />)}
+				{
+					jinxes.map(j => (
+						<Flex key={j.character.role.id} align='center' gap={10}>
+							<ClocktowerToken character={j.character} size={30} />
+							<Field label={j.character.role.name} value={j.reason} />
+						</Flex>
+					))
+				}
 			</div>
 		</ErrorBoundary>
 	);

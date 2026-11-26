@@ -1,20 +1,22 @@
-import { Feature, FeatureAncestryChoice, FeatureChoice, FeatureClassAbility, FeatureCompanion, FeatureDomain, FeatureDomainFeature, FeatureItemChoice, FeatureKit, FeatureLanguageChoice, FeatureMultiple, FeaturePerk, FeatureRetainer, FeatureSkillChoice, FeatureSummon, FeatureSummonChoice, FeatureTaggedFeatureChoice, FeatureTitleChoice } from '@/models/feature';
-import { AbilityUpdateLogic } from '@/logic/update/ability-update-logic';
+import { Feature, FeatureAncestryChoice, FeatureAncestryFeatureChoice, FeatureChoice, FeatureClassAbility, FeatureCompanion, FeatureComplication, FeatureDomain, FeatureDomainFeature, FeatureHeroicResource, FeatureHeroicResourceGain, FeatureHeroicResourceThreshold, FeatureItemChoice, FeatureKit, FeatureLanguageChoice, FeatureMultiple, FeaturePerk, FeatureRetainer, FeatureSkillCancelChoice, FeatureSkillChoice, FeatureSummon, FeatureSummonChoice, FeatureSurgeGain, FeatureTaggedFeatureChoice, FeatureTitleChoice, FeatureToggle } from '@/models/feature';
 import { Ancestry } from '@/models/ancestry';
 import { AncestryData } from '@/data/ancestry-data';
 import { Characteristic } from '@/enums/characteristic';
 import { CultureData } from '@/data/culture-data';
 import { CultureType } from '@/enums/culture-type';
+import { ExtensionLogic } from '@/logic/extension-logic';
 import { FeatureLogic } from '@/logic/feature-logic';
 import { FeatureType } from '@/enums/feature-type';
-import { FeatureUpdateLogic } from '@/logic/update/feature-update-logic';
 import { Hero } from '@/models/hero';
 import { HeroLogic } from '@/logic/hero-logic';
-import { ItemUpdateLogic } from '@/logic/update/item-update-logic';
+import { ResourceGain } from '@/models/resource-gain';
 import { Sourcebook } from '@/models/sourcebook';
-import { SourcebookData } from '@/data/sourcebook-data';
 import { SourcebookLogic } from '@/logic/sourcebook-logic';
 import { SourcebookType } from '@/enums/sourcebook-type';
+import { Summon } from '@/models/summon';
+import { SummonLogic } from '@/logic/summon-logic';
+import { TutorialMode } from '@/enums/tutorial-mode';
+import { UpdateLogic } from './update-logic';
 import { Utils } from '@/utils/utils';
 
 export class HeroUpdateLogic {
@@ -32,16 +34,32 @@ export class HeroUpdateLogic {
 			hero.folder = '';
 		}
 
+		if (hero.isActive === undefined) {
+			const legacy = (hero as unknown as { isDisabled?: boolean | string }).isDisabled;
+			if (legacy !== undefined) {
+				hero.isActive = !(legacy === true || legacy === 'true');
+				delete (hero as unknown as { isDisabled?: boolean | string }).isDisabled;
+			} else {
+				hero.isActive = true;
+			}
+		} else {
+			hero.isActive = hero.isActive === true;
+		}
+
 		if (hero.sourcebookIDs === undefined) {
-			hero.sourcebookIDs = SourcebookLogic.getSourcebooks()
+			hero.sourcebookIDs = sourcebooks
 				.filter(sb => sb.type === SourcebookType.Official)
 				.map(sb => sb.id);
 		}
 
-		hero.sourcebookIDs = hero.sourcebookIDs.map(id => id === '' ? SourcebookData.core.id : id);
+		hero.sourcebookIDs = hero.sourcebookIDs.map(id => id === '' ? 'core' : id);
+
+		if (hero.extensionIDs === undefined) {
+			hero.extensionIDs = [];
+		}
 
 		if (hero.ancestry) {
-			hero.ancestry.features.forEach(FeatureUpdateLogic.updateFeature);
+			hero.ancestry.features.forEach(UpdateLogic.updateFeature);
 
 			if (hero.ancestry.ancestryPoints === undefined) {
 				switch (hero.ancestry.id) {
@@ -63,10 +81,12 @@ export class HeroUpdateLogic {
 			if (hero.culture.type === undefined) {
 				hero.culture.type = CultureType.Ancestral;
 			}
+
+			UpdateLogic.updateCulture(hero.culture);
 		}
 
 		if (hero.career) {
-			hero.career.features.forEach(FeatureUpdateLogic.updateFeature);
+			hero.career.features.forEach(UpdateLogic.updateFeature);
 
 			if (hero.career.incitingIncidents === undefined) {
 				hero.career.incitingIncidents = {
@@ -89,11 +109,11 @@ export class HeroUpdateLogic {
 
 			hero.class.featuresByLevel
 				.flatMap(lvl => lvl.features)
-				.forEach(FeatureUpdateLogic.updateFeature);
+				.forEach(UpdateLogic.updateFeature);
 			hero.class.subclasses
 				.flatMap(sc => sc.featuresByLevel)
 				.flatMap(lvl => lvl.features)
-				.forEach(FeatureUpdateLogic.updateFeature);
+				.forEach(UpdateLogic.updateFeature);
 
 			hero.class.abilities.forEach(a => {
 				if (a.sections === undefined) {
@@ -103,11 +123,17 @@ export class HeroUpdateLogic {
 		}
 
 		if (hero.complication) {
-			hero.complication.features.forEach(FeatureUpdateLogic.updateFeature);
+			hero.complication.features.forEach(UpdateLogic.updateFeature);
 		}
+
+		HeroLogic.getComplications(hero).flatMap(c => c.features).forEach(UpdateLogic.updateFeature);
 
 		if (hero.features === undefined) {
 			hero.features = [];
+		}
+
+		if (hero.state.tutorialMode === undefined) {
+			hero.state.tutorialMode = TutorialMode.Complete;
 		}
 
 		hero.state.conditions.forEach(c => {
@@ -152,6 +178,10 @@ export class HeroUpdateLogic {
 			hero.state.notes = '';
 		}
 
+		if (hero.state.inventoryText === undefined) {
+			hero.state.inventoryText = '';
+		}
+
 		if (hero.state.encounterState === undefined) {
 			hero.state.encounterState = 'ready';
 		}
@@ -160,7 +190,7 @@ export class HeroUpdateLogic {
 			hero.state.defeated = false;
 		}
 
-		hero.state.inventory.forEach(ItemUpdateLogic.updateItem);
+		hero.state.inventory.forEach(UpdateLogic.updateItem);
 
 		hero.state.projects.forEach(p => {
 			if (p.progress) {
@@ -195,12 +225,12 @@ export class HeroUpdateLogic {
 			}
 		});
 
-		HeroLogic.getFormerAncestries(hero).flatMap(t => t.features).forEach(FeatureUpdateLogic.updateFeature);
-		HeroLogic.getDomains(hero).flatMap(d => d.featuresByLevel).flatMap(lvl => lvl.features).forEach(FeatureUpdateLogic.updateFeature);
-		HeroLogic.getTitles(hero).flatMap(t => t.features).forEach(FeatureUpdateLogic.updateFeature);
+		HeroLogic.getFormerAncestries(hero).flatMap(t => t.features).forEach(UpdateLogic.updateFeature);
+		HeroLogic.getDomains(hero).flatMap(d => d.featuresByLevel).flatMap(lvl => lvl.features).forEach(UpdateLogic.updateFeature);
+		HeroLogic.getTitles(hero).flatMap(t => t.features).forEach(UpdateLogic.updateFeature);
 
-		HeroLogic.getFeatures(hero).map(f => f.feature).forEach(FeatureUpdateLogic.updateFeature);
-		HeroLogic.getAbilities(hero, sourcebooks, []).map(a => a.ability).forEach(AbilityUpdateLogic.updateAbility);
+		HeroLogic.getFeatures(hero).map(f => f.feature).forEach(UpdateLogic.updateFeature);
+		HeroLogic.getAbilities(hero, sourcebooks, []).map(a => a.ability).forEach(UpdateLogic.updateAbility);
 
 		const x = hero.state as unknown as { heroicResource: number | undefined };
 		if (x.heroicResource) {
@@ -232,14 +262,18 @@ export class HeroUpdateLogic {
 		});
 	};
 
-	static updateHeroData = (hero: Hero, sourcebooks: Sourcebook[]) => {
+	static updateHeroData = (hero: Hero, allSourcebooks: Sourcebook[]) => {
 		const original = Utils.copy(hero);
+
+		// Elements are looked up in every sourcebook, but only the extensions the hero has approved
+		// (from the hero's own sourcebooks) get to change them
+		const sourcebooks = ExtensionLogic.applyExtensions(allSourcebooks, { extensionSourcebookIDs: hero.sourcebookIDs, extensionIDs: hero.extensionIDs || [] });
 
 		try {
 			if (original.ancestry) {
 				const id = original.ancestry.id;
 				const ancestry = SourcebookLogic.getAncestries(sourcebooks).find(a => a.id === id);
-				if (ancestry) {
+				if (ancestry && !ExtensionLogic.dependsOnMissingSourcebook(original.ancestry, allSourcebooks)) {
 					hero.ancestry = Utils.copy(ancestry);
 				}
 			}
@@ -281,7 +315,9 @@ export class HeroUpdateLogic {
 			if (original.class) {
 				const id = original.class.id;
 				const heroClass = SourcebookLogic.getClasses(sourcebooks).find(c => c.id === id);
-				if (heroClass) {
+				const dependsOnMissing = [ original.class, ...original.class.subclasses.filter(sc => sc.selected) ]
+					.some(e => ExtensionLogic.dependsOnMissingSourcebook(e, allSourcebooks));
+				if (heroClass && !dependsOnMissing) {
 					hero.class = Utils.copy(heroClass);
 
 					// Level
@@ -298,6 +334,18 @@ export class HeroUpdateLogic {
 							sc.selected = originalSubClass.selected;
 						}
 					});
+
+					// A subclass chosen from elsewhere (a standalone homebrew subclass, or one from another class)
+					// isn't part of the sourcebook's class, so it has to be brought across separately
+					original.class.subclasses
+						.filter(osc => osc.selected)
+						.filter(osc => !hero.class!.subclasses.some(sc => sc.id === osc.id))
+						.forEach(osc => {
+							const subclass = SourcebookLogic.getSubclasses(sourcebooks, true).find(sc => sc.id === osc.id);
+							const copy = subclass ? Utils.copy(subclass) : osc;
+							copy.selected = true;
+							hero.class!.subclasses.push(copy);
+						});
 				}
 			}
 		} catch (ex) {
@@ -346,7 +394,7 @@ export class HeroUpdateLogic {
 					.find(of => of.id === f.id);
 
 				if (originalFeature) {
-					HeroUpdateLogic.updateFeatureData(f, originalFeature, hero, sourcebooks);
+					HeroUpdateLogic.updateHeroFeatureData(f, originalFeature, hero, sourcebooks);
 				}
 			});
 
@@ -359,16 +407,47 @@ export class HeroUpdateLogic {
 					.find(of => of.id === f.id);
 
 				if (originalFeature) {
-					HeroUpdateLogic.updateFeatureData(f, originalFeature, hero, sourcebooks);
+					HeroUpdateLogic.updateHeroFeatureData(f, originalFeature, hero, sourcebooks);
 				}
 			});
+
+		HeroLogic.updateKitDamageBonusSelections(hero);
 	};
 
-	static updateFeatureData = (feature: Feature, originalFeature: Feature, hero: Hero, sourcebooks: Sourcebook[]) => {
+	// Rebuilds the hero's copy of a summon from the current version of it, carrying over the hero's customizations
+	// This picks up data fixes, and repairs heroes whose summons had controller-derived values (such as a
+	// beastheart companion's Stamina) saved into them, which stopped those values from changing as the hero levelled up
+	static refreshSummon = (stored: Summon, current: Summon[]) => {
+		const source = current.find(s => s.id === stored.id);
+		if (!source) {
+			return stored;
+		}
+
+		const copy = Utils.copy(source);
+		copy.info.level = stored.info.level;
+		SummonLogic.applyCustomization(copy.monster, stored.monster);
+		return copy;
+	};
+
+	static carryResourceGainState = (gains: ResourceGain[], originalGains: ResourceGain[]) => {
+		gains.forEach((gain, n) => {
+			const oGain = originalGains[n];
+			if (oGain && (oGain.tag === gain.tag)) {
+				gain.used = oGain.used;
+			}
+		});
+	};
+
+	// The sourcebooks are every loaded sourcebook (not just the hero's), with the hero's extensions applied -
+	// so they can also tell whether an extension's sourcebook is loaded at all
+	static updateHeroFeatureData = (feature: Feature, originalFeature: Feature, hero: Hero, sourcebooks: Sourcebook[]) => {
 		try {
 			switch (feature.type) {
 				case FeatureType.AncestryChoice: {
 					const oFeature = originalFeature as FeatureAncestryChoice;
+					if (oFeature.type !== FeatureType.AncestryChoice) {
+						break;
+					}
 
 					if (oFeature.data.selected) {
 						const ancestryID = oFeature.data.selected.id;
@@ -379,7 +458,10 @@ export class HeroUpdateLogic {
 					break;
 				}
 				case FeatureType.AncestryFeatureChoice: {
-					const oFeature = originalFeature as FeatureAncestryChoice;
+					const oFeature = originalFeature as FeatureAncestryFeatureChoice;
+					if (oFeature.type !== FeatureType.AncestryFeatureChoice) {
+						break;
+					}
 
 					const ancestries: Ancestry[] = [];
 					if (feature.data.source.customID) {
@@ -409,19 +491,32 @@ export class HeroUpdateLogic {
 				}
 				case FeatureType.Choice: {
 					const oFeature = originalFeature as FeatureChoice;
+					if (oFeature.type !== FeatureType.Choice) {
+						break;
+					}
 
-					const selectedIDs = oFeature.data.selected.map(s => s.id);
+					const selectedIDs = oFeature.data.selected.filter(s => !!s).map(s => s.id);
 
 					let availableOptions = [ ...feature.data.options ];
 					if (feature.data.count === 'ancestry') {
-						availableOptions = sourcebooks
+						const ownAncestries = hero.ancestry ? [ hero.ancestry, ...HeroLogic.getFormerAncestries(hero) ] : HeroLogic.getFormerAncestries(hero);
+						const ownOptions = ownAncestries
+							.flatMap(a => a.features)
+							.filter(f => f.type === FeatureType.Choice)
+							.filter(f => f.data.count === 'ancestry')
+							.flatMap(f => f.data.options);
+
+						const allOptions = sourcebooks
 							.flatMap(sb => sb.ancestries)
 							.flatMap(a => a.features)
 							.filter(f => f.type === FeatureType.Choice)
 							.filter(f => f.data.count === 'ancestry')
 							.flatMap(f => f.data.options);
+
+						availableOptions = [ ...ownOptions, ...allOptions ];
 					}
 
+					feature.data.selected = [];
 					selectedIDs.forEach(id => {
 						const option = availableOptions.find(o => o.feature.id === id);
 						if (option) {
@@ -431,39 +526,84 @@ export class HeroUpdateLogic {
 					feature.data.selected.forEach(child => {
 						const oChild = oFeature.data.selected.find(x => x.id === child.id);
 						if (oChild) {
-							HeroUpdateLogic.updateFeatureData(child, oChild, hero, sourcebooks);
+							HeroUpdateLogic.updateHeroFeatureData(child, oChild, hero, sourcebooks);
 						}
 					});
 					break;
 				}
 				case FeatureType.ClassAbility: {
 					const oFeature = originalFeature as FeatureClassAbility;
+					if (oFeature.type !== FeatureType.ClassAbility) {
+						break;
+					}
 
-					const abilityIDs = hero.class ? hero.class.abilities.map(a => a.id) : [];
+					const abilityIDs: string[] = [];
+					let heroClass = hero.class;
+					if (feature.data.classID) {
+						heroClass = SourcebookLogic.getClasses(sourcebooks).find(c => c.id === feature.data.classID) || null;
+					}
+					if (heroClass) {
+						const abilities = SourcebookLogic.getAbilitiesFromClass(heroClass, feature.data.source.fromClassAbilities, feature.data.source.fromSelectedSubclassAbilities, feature.data.source.fromUnselectedSubclassAbilities, feature.data.source.fromClassLevels, feature.data.source.fromSelectedSubclassLevels, feature.data.source.fromUnselectedSubclassLevels);
+						abilityIDs.push(...abilities.map(a => a.id));
+					}
 					feature.data.selectedIDs = oFeature.data.selectedIDs.filter(id => abilityIDs.includes(id));
 					break;
 				}
 				case FeatureType.Companion: {
 					const oFeature = originalFeature as FeatureCompanion;
+					if (oFeature.type !== FeatureType.Companion) {
+						break;
+					}
+
 					feature.data.selected = oFeature.data.selected;
+					break;
+				}
+				case FeatureType.Complication: {
+					const oFeature = originalFeature as FeatureComplication;
+					if (oFeature.type !== FeatureType.Complication) {
+						break;
+					}
+
+					if (oFeature.data.selected) {
+						const complication = SourcebookLogic.getComplications(sourcebooks).find(c => c.id === oFeature.data.selected!.id);
+						feature.data.selected = complication ? Utils.copy(complication) : oFeature.data.selected;
+					} else {
+						feature.data.selected = null;
+					}
 					break;
 				}
 				case FeatureType.Domain: {
 					const oFeature = originalFeature as FeatureDomain;
+					if (oFeature.type !== FeatureType.Domain) {
+						break;
+					}
 
-					const selectedIDs = oFeature.data.selected.map(d => d.id);
+					const selectedIDs = oFeature.data.selected.filter(d => !!d).map(d => d.id);
 					feature.data.selected = SourcebookLogic.getDomains(sourcebooks)
 						.filter(d => selectedIDs.includes(d.id))
 						.map(d => {
+							const oDomain = oFeature.data.selected.find(od => od && (od.id === d.id));
+							if (oDomain && ExtensionLogic.dependsOnMissingSourcebook(oDomain, sourcebooks)) {
+								return oDomain;
+							}
+
 							const copy = Utils.copy(d);
 							copy.featuresByLevel = copy.featuresByLevel.filter(lvl => feature.data.levels.includes(lvl.level));
 							[ ...copy.defaultFeatures, ...copy.featuresByLevel.flatMap(lvl => lvl.features) ].forEach(f => FeatureLogic.switchFeatureCharacteristic(f, Characteristic.Intuition, feature.data.characteristic));
+
+							if (oDomain) {
+								HeroUpdateLogic.carryResourceGainState(copy.resourceGains, oDomain.resourceGains);
+							}
+
 							return copy;
 						});
 					break;
 				}
 				case FeatureType.DomainFeature: {
 					const oFeature = originalFeature as FeatureDomainFeature;
+					if (oFeature.type !== FeatureType.DomainFeature) {
+						break;
+					}
 
 					const domainFeatures: Feature[] = [];
 					HeroLogic.getDomains(hero).forEach(d => {
@@ -472,25 +612,38 @@ export class HeroUpdateLogic {
 							.forEach(lvl => domainFeatures.push(...lvl.features));
 					});
 
-					const selectedIDs = oFeature.data.selected.map(f => f.id);
+					const selectedIDs = oFeature.data.selected.filter(f => !!f).map(f => f.id);
 					feature.data.selected = domainFeatures.filter(df => selectedIDs.includes(df.id));
 					feature.data.selected.forEach(child => {
-						const oChild = oFeature.data.selected.find(x => x.id === child.id);
+						const oChild = oFeature.data.selected.find(x => x && (x.id === child.id));
 						if (oChild) {
-							HeroUpdateLogic.updateFeatureData(child, oChild, hero, sourcebooks);
+							HeroUpdateLogic.updateHeroFeatureData(child, oChild, hero, sourcebooks);
 						}
 					});
 					break;
 				}
+				case FeatureType.HeroicResource: {
+					const oFeature = originalFeature as FeatureHeroicResource;
+					if (oFeature.type !== FeatureType.HeroicResource) {
+						break;
+					}
+
+					feature.data.value = oFeature.data.value;
+					HeroUpdateLogic.carryResourceGainState(feature.data.gains, oFeature.data.gains);
+					break;
+				}
 				case FeatureType.ItemChoice: {
 					const oFeature = originalFeature as FeatureItemChoice;
+					if (oFeature.type !== FeatureType.ItemChoice) {
+						break;
+					}
 
-					const selectedIDs = oFeature.data.selected.map(i => i.id);
+					const selectedIDs = oFeature.data.selected.filter(i => !!i).map(i => i.id);
 					feature.data.selected = SourcebookLogic.getItems(sourcebooks)
 						.filter(i => selectedIDs.includes(i.id))
 						.map(i => {
 							const copiedItem = Utils.copy(i);
-							const origItem = oFeature.data.selected.find(oi => oi.id === i.id);
+							const origItem = oFeature.data.selected.find(oi => oi && (oi.id === i.id));
 							if (origItem) {
 								copiedItem.count = origItem.count;
 							}
@@ -500,82 +653,175 @@ export class HeroUpdateLogic {
 				}
 				case FeatureType.Kit: {
 					const oFeature = originalFeature as FeatureKit;
+					if (oFeature.type !== FeatureType.Kit) {
+						break;
+					}
 
-					const selectedIDs = oFeature.data.selected.map(k => k.id);
+					const selectedIDs = oFeature.data.selected.filter(k => !!k).map(k => k.id);
 					feature.data.selected = SourcebookLogic.getKits(sourcebooks)
 						.filter(k => selectedIDs.includes(k.id))
-						.map(k => Utils.copy(k));
+						.map(k => {
+							const oKit = oFeature.data.selected.find(ok => ok && (ok.id === k.id));
+							return (oKit && ExtensionLogic.dependsOnMissingSourcebook(oKit, sourcebooks)) ? oKit : Utils.copy(k);
+						});
+
+					feature.data.selected.forEach(kit => {
+						const oKit = oFeature.data.selected.find(k => k && (k.id === kit.id));
+						if (!oKit) {
+							return;
+						}
+
+						kit.features.forEach(child => {
+							const oChild = oKit.features.find(x => x.id === child.id);
+							if (oChild) {
+								HeroUpdateLogic.updateHeroFeatureData(child, oChild, hero, sourcebooks);
+							}
+						});
+					});
 					break;
 				}
 				case FeatureType.LanguageChoice: {
 					const oFeature = originalFeature as FeatureLanguageChoice;
+					if (oFeature.type !== FeatureType.LanguageChoice) {
+						break;
+					}
 
 					feature.data.selected = [ ...oFeature.data.selected ];
 					break;
 				}
+				case FeatureType.HeroicResourceGain: {
+					const oFeature = originalFeature as FeatureHeroicResourceGain;
+					if (oFeature.type !== FeatureType.HeroicResourceGain) {
+						break;
+					}
+
+					feature.data.used = oFeature.data.used;
+					break;
+				}
+				case FeatureType.HeroicResourceThreshold: {
+					const oFeature = originalFeature as FeatureHeroicResourceThreshold;
+					if (oFeature.type !== FeatureType.HeroicResourceThreshold) {
+						break;
+					}
+
+					if (oFeature.data.feature.id === feature.data.feature.id) {
+						HeroUpdateLogic.updateHeroFeatureData(feature.data.feature, oFeature.data.feature, hero, sourcebooks);
+					}
+					break;
+				}
 				case FeatureType.Multiple: {
 					const oFeature = originalFeature as FeatureMultiple;
+					if (oFeature.type !== FeatureType.Multiple) {
+						break;
+					}
 
 					feature.data.features.forEach(child => {
 						const oChild = oFeature.data.features.find(x => x.id === child.id);
 						if (oChild) {
-							HeroUpdateLogic.updateFeatureData(child, oChild, hero, sourcebooks);
+							HeroUpdateLogic.updateHeroFeatureData(child, oChild, hero, sourcebooks);
 						}
 					});
 					break;
 				}
 				case FeatureType.Perk: {
 					const oFeature = originalFeature as FeaturePerk;
+					if (oFeature.type !== FeatureType.Perk) {
+						break;
+					}
 
-					const selectedIDs = oFeature.data.selected.map(p => p.id);
+					const selectedIDs = oFeature.data.selected.filter(p => !!p).map(p => p.id);
 					feature.data.selected = SourcebookLogic.getPerks(sourcebooks)
 						.filter(p => selectedIDs.includes(p.id))
 						.map(p => Utils.copy(p));
 
 					feature.data.selected.forEach(child => {
-						const oChild = oFeature.data.selected.find(x => x.id === child.id);
+						const oChild = oFeature.data.selected.find(x => x && (x.id === child.id));
 						if (oChild) {
-							HeroUpdateLogic.updateFeatureData(child, oChild, hero, sourcebooks);
+							HeroUpdateLogic.updateHeroFeatureData(child, oChild, hero, sourcebooks);
 						}
 					});
 					break;
 				}
 				case FeatureType.Retainer: {
 					const oFeature = originalFeature as FeatureRetainer;
+					if (oFeature.type !== FeatureType.Retainer) {
+						break;
+					}
+
 					feature.data.selected = oFeature.data.selected;
+					break;
+				}
+				case FeatureType.SkillCancelChoice: {
+					const oFeature = originalFeature as FeatureSkillCancelChoice;
+					if (oFeature.type !== FeatureType.SkillCancelChoice) {
+						break;
+					}
+
+					feature.data.selected = [ ...oFeature.data.selected ];
 					break;
 				}
 				case FeatureType.SkillChoice: {
 					const oFeature = originalFeature as FeatureSkillChoice;
+					if (oFeature.type !== FeatureType.SkillChoice) {
+						break;
+					}
 
 					feature.data.selected = [ ...oFeature.data.selected ];
 					break;
 				}
 				case FeatureType.Summon: {
 					const oFeature = originalFeature as FeatureSummon;
-					feature.data.summons = oFeature.data.summons;
+					if (oFeature.type !== FeatureType.Summon) {
+						break;
+					}
+
+					feature.data.summons = oFeature.data.summons.map(s => HeroUpdateLogic.refreshSummon(s, feature.data.summons));
 					break;
 				}
 				case FeatureType.SummonChoice: {
 					const oFeature = originalFeature as FeatureSummonChoice;
-					feature.data.selected = oFeature.data.selected;
+					if (oFeature.type !== FeatureType.SummonChoice) {
+						break;
+					}
+
+					// The hero's copy of each summon holds their customizations, so it is kept - unless an extension added it
+					// and it is no longer one of the options, in which case the hero no longer uses that extension
+					const optionIDs = feature.data.options.map(o => o.id);
+					feature.data.selected = oFeature.data.selected
+						.filter(s => !!s && (!s.extensionID || optionIDs.includes(s.id)))
+						.map(s => HeroUpdateLogic.refreshSummon(s, feature.data.options));
+					break;
+				}
+				case FeatureType.SurgeGain: {
+					const oFeature = originalFeature as FeatureSurgeGain;
+					if (oFeature.type !== FeatureType.SurgeGain) {
+						break;
+					}
+
+					feature.data.used = oFeature.data.used;
 					break;
 				}
 				case FeatureType.TaggedFeatureChoice: {
 					const oFeature = originalFeature as FeatureTaggedFeatureChoice;
+					if (oFeature.type !== FeatureType.TaggedFeatureChoice) {
+						break;
+					}
 
 					const taggedFeatures = HeroLogic.getFeatures(hero)
 						.map(f => f.feature)
 						.filter(f => f.type === FeatureType.TaggedFeature)
 						.filter(f => f.data.tag === oFeature.data.tag);
-					const selectedIDs = oFeature.data.selected.map(f => f.id);
+					const selectedIDs = oFeature.data.selected.filter(f => !!f).map(f => f.id);
 					feature.data.selected = taggedFeatures.filter(f => selectedIDs.includes(f.id));
 					break;
 				}
 				case FeatureType.TitleChoice: {
 					const oFeature = originalFeature as FeatureTitleChoice;
+					if (oFeature.type !== FeatureType.TitleChoice) {
+						break;
+					}
 
-					feature.data.selected = oFeature.data.selected.map(oTitle => {
+					feature.data.selected = oFeature.data.selected.filter(oTitle => !!oTitle).map(oTitle => {
 						const title = SourcebookLogic.getTitles(sourcebooks).find(t => t.id === oTitle.id);
 						if (title) {
 							const copy = Utils.copy(title);
@@ -585,6 +831,15 @@ export class HeroUpdateLogic {
 
 						return oTitle;
 					});
+					break;
+				}
+				case FeatureType.Toggle: {
+					const oFeature = originalFeature as FeatureToggle;
+					if (oFeature.type !== FeatureType.Toggle) {
+						break;
+					}
+
+					feature.data.checked = oFeature.data.checked;
 					break;
 				}
 			};

@@ -5,6 +5,8 @@ export interface Options {
 	// App
 	cookieConsent: boolean;
 	showDataSource: boolean;
+	showTips: boolean;
+	show3DDice: boolean;
 	// Hero
 	shownStandardAbilities: string[];
 	xpPerLevel: number;
@@ -41,4 +43,6 @@ export interface Options {
 	// Tactical Map
 	gridSize: number;
 	playerGridSize: number;
+	// Homebrewing
+	showClipboardOptions: boolean;
 }

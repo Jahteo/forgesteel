@@ -1,9 +1,10 @@
 import { Button, Divider, Flex, Segmented, Space } from 'antd';
-import { EditFilled, EditOutlined, UploadOutlined } from '@ant-design/icons';
+import { CopyOutlined, EditFilled, EditOutlined, UploadOutlined } from '@ant-design/icons';
 import { ControlledMonsterCustomizePanel } from '@/components/panels/controlled-monster-customize/controlled-monster-customize-panel';
 import { Element } from '@/models/element';
 import { Encounter } from '@/models/encounter';
 import { Expander } from '@/components/controls/expander/expander';
+import { ExtractedCondition } from '@/logic/condition-extraction-logic';
 import { FeatureData } from '@/models/feature';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { Hero } from '@/models/hero';
@@ -16,6 +17,7 @@ import { MonsterLogic } from '@/logic/monster-logic';
 import { MonsterPanel } from '@/components/panels/elements/monster-panel/monster-panel';
 import { MonsterToken } from '@/components/panels/token/token';
 import { PanelMode } from '@/enums/panel-mode';
+import { SharedElementKind } from '@/logic/sharing-logic';
 import { Sourcebook } from '@/models/sourcebook';
 import { SummoningInfo } from '@/models/summon';
 import { TextInput } from '@/components/controls/text-input/text-input';
@@ -28,6 +30,7 @@ interface Props {
 	monster: Monster;
 	monsterGroup?: MonsterGroup;
 	encounter?: Encounter;
+	encounterConditions?: ExtractedCondition[];
 	summon?: SummoningInfo;
 	sourcebooks: Sourcebook[];
 	controller?: Hero;
@@ -36,6 +39,7 @@ interface Props {
 	updateMonster?: (monster: Monster) => void;
 	updateEncounter?: (encounter: Encounter) => void;
 	exportElementData?: (category: string, element: Element) => void;
+	copyElementCode?: (kind: SharedElementKind, element: Element) => void;
 }
 
 export const MonsterModal = (props: Props) => {
@@ -57,6 +61,14 @@ export const MonsterModal = (props: Props) => {
 		}
 	};
 
+	const copyMonsterCode = () => {
+		if (props.copyElementCode) {
+			// Whatever is on screen, rather than what arrived in props - a retainer which has been
+			// customised should go to the recipient in the state its owner is looking at
+			props.copyElementCode('monster', monster);
+		}
+	};
+
 	const getToolbar = () => {
 		if (props.updateMonster) {
 			return (
@@ -71,11 +83,24 @@ export const MonsterModal = (props: Props) => {
 			);
 		}
 
-		if (props.exportElementData) {
+		if (props.exportElementData || props.copyElementCode) {
 			return (
-				<Button icon={<UploadOutlined />} onClick={exportMonster}>
-					Export
-				</Button>
+				<>
+					{
+						props.copyElementCode ?
+							<Button icon={<CopyOutlined />} onClick={copyMonsterCode}>
+								Copy Code
+							</Button>
+							: null
+					}
+					{
+						props.exportElementData ?
+							<Button icon={<UploadOutlined />} onClick={exportMonster}>
+								Export
+							</Button>
+							: null
+					}
+				</>
 			);
 		}
 
@@ -115,7 +140,7 @@ export const MonsterModal = (props: Props) => {
 									<Button
 										type='text'
 										title='Edit the name'
-										icon={editingName ? <EditFilled style={{ color: 'rgb(64, 150, 255)' }} /> : <EditOutlined />}
+										icon={editingName ? <EditFilled style={{ color: 'var(--fs-accent-light)' }} /> : <EditOutlined />}
 										onClick={() => setEditingName(!editingName)}
 									/>
 									: undefined
@@ -142,6 +167,7 @@ export const MonsterModal = (props: Props) => {
 						}
 						<MonsterHealthPanel
 							monster={monster}
+							encounterConditions={props.encounterConditions}
 							onChange={updateMonster}
 						/>
 					</div>
@@ -180,6 +206,7 @@ export const MonsterModal = (props: Props) => {
 							MonsterLogic.getMaliceOptions(monster, props.monsterGroup)
 								.map(malice => (
 									<MalicePanel
+										key={malice.id}
 										malice={malice}
 										currentMalice={encounter ? encounter.malice : undefined}
 										updateCurrentMalice={

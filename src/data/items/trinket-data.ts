@@ -124,7 +124,7 @@ export class TrinketData {
 							name: 'Use Cloak',
 							type: FactoryLogic.type.createTrigger('You are targeted by any effect that deals lightning damage'),
 							sections: [
-								FactoryLogic.createAbilitySectionText('The next damage-dealing ability you use to deal extra lightning damage equal to your level. The lightning immunity granted by the cloak becomes ightning immunity equal to your level until the end of the next round. You can\'t use this triggered action again until this weakness ends.')
+								FactoryLogic.createAbilitySectionText('The next damage-dealing ability you use to deal extra lightning damage equal to your level. The lightning immunity granted by the cloak becomes lightning weakness equal to your level until the end of the next round. You can\'t use this triggered action again until this weakness ends.')
 							]
 						})
 					})
@@ -252,7 +252,7 @@ If the object is too thick or has no open space on the other side, your hand bec
 	static geckoGloves: Item = FactoryLogic.createItem({
 		id: 'item-gecko-gloves',
 		name: 'Gecko Gloves',
-		description: 'These scaled gloves have palms and fingers covered in nearinvisible sticky hairs.',
+		description: 'These scaled gloves have palms and fingers covered in near-invisible sticky hairs.',
 		type: ItemType.Trinket1st,
 		keywords: [ AbilityKeyword.Hands, AbilityKeyword.Magic ],
 		crafting: FactoryLogic.createProject({
@@ -347,7 +347,7 @@ If the object is too thick or has no open space on the other side, your hand bec
 	static snakerattleBangle: Item = FactoryLogic.createItem({
 		id: 'item-snakerattle-bangle',
 		name: 'Snakerattle Bangle',
-		description: 'This loose-fitting, scaley bangle shifts and slithers while worn. It emits a bone-chilling rattle each time it hits its user’s wrist.',
+		description: 'This loose-fitting, scaly bangle shifts and slithers while worn. It emits a bone-chilling rattle each time it hits its user’s wrist.',
 		type: ItemType.Trinket1st,
 		keywords: [ AbilityKeyword.Arms, AbilityKeyword.Magic ],
 		crafting: FactoryLogic.createProject({

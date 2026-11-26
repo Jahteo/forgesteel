@@ -25,6 +25,8 @@ export interface Hero {
 	picture: string | null;
 	folder: string;
 	sourcebookIDs: string[];
+	// The homebrew extensions the player has approved for this hero; others don't apply, even from the hero's sourcebooks
+	extensionIDs: string[];
 
 	ancestry: Ancestry | null;
 	culture: Culture | null;
@@ -35,17 +37,24 @@ export interface Hero {
 	features: Feature[];
 	state: HeroState;
 	abilityCustomizations: AbilityCustomization[];
+	selectedMeleeDamageBonus: string | null;
+	selectedRangedDamageBonus: string | null;
+	isActive: boolean;
 }
 
 export interface HeroOverview {
 	id: string;
 	name: string;
+
+	picture: string | null;
+	folder: string;
+
 	ancestry: string | null;
 	background: string | null;
 	class: string | null;
 	complication: string | null;
-	picture: string | null;
-	folder: string;
+
+	isActive: boolean;
 }
 
-export type HeroEditTab = 'start' | 'ancestry' | 'culture' | 'career' | 'class' | 'complication' | 'details';
+export type HeroEditTab = 'start' | 'ancestry' | 'culture' | 'career' | 'class' | 'complication' | 'selections' | 'details';

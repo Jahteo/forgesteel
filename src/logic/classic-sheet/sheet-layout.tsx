@@ -27,6 +27,19 @@ export interface CardPageLayout {
 };
 
 export class SheetLayout {
+	// Where a list of rows printed on a fixed-size page has to break onto the next page, given where each row ends:
+	// the first row that ends below the bottom of the space available, or null if they all fit.
+	// When keepFirstRow is set, a page always keeps its first row, even if it doesn't fit - otherwise a row taller
+	// than a whole page would keep the list breaking onto new pages forever
+	static getRowBreak = (rowBottoms: number[], limit: number, keepFirstRow: boolean): number | null => {
+		const index = rowBottoms.findIndex(bottom => bottom > limit);
+		if ((index === -1) || ((index === 0) && keepFirstRow)) {
+			return null;
+		}
+
+		return index;
+	};
+
 	static getAbilityLayout = (options: Options): CardPageLayout => {
 		// Get root font size (1rem)
 		const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -61,7 +74,11 @@ export class SheetLayout {
 
 	static getMonsterCardsLayout = (options: Options): CardPageLayout => {
 		// FORCE portrait
-		return this.getCardsLayoutForOrientation(options, 'portrait');
+		const layout = this.getCardsLayoutForOrientation(options, 'portrait');
+		// more conservative for monster/library cards
+		layout.linesY = 85;
+		layout.cardGap = 2;
+		return layout;
 	};
 
 	static getCardsLayoutForOrientation = (options: Options, orientation: 'portrait' | 'landscape'): CardPageLayout => {
@@ -96,7 +113,6 @@ export class SheetLayout {
 			rowH = 0;
 			slotsToFillInRow = layout.perRow;
 		}
-		// console.log(`Filling ${spaceInRow} spaces in current row, with currentH=${rowH} (& total ${availableLinesY}) available Y lines`);
 		nextCard: while (availableLinesY > 0 && (extraCards.required.find(c => !c.shown) || extraCards.optional.find(c => !c.shown))) {
 			spaceInRow = (slotsToFillInRow % layout.perRow) || layout.perRow;
 			if (spaceInRow === layout.perRow) {
@@ -108,7 +124,6 @@ export class SheetLayout {
 				}
 				rowH = 0;
 			}
-			// console.log('Available space in current row:', spaceInRow, 'current rowH:', rowH, 'overall H:', availableLinesY);
 
 			// Space filling precedence:
 			//	1. Largest required card under rowH
@@ -176,7 +191,6 @@ export class SheetLayout {
 					// stackH shouldn't ever go over rowH?
 					rowH = Math.max(rowH, stackH);
 				} else {
-					// console.log(`Adding card ${card.element.key} with H ${card.height} and W ${card.width} to current row`);
 					refCards.push(card.element);
 					rowH = Math.max(rowH, card.height);
 				}
@@ -186,7 +200,6 @@ export class SheetLayout {
 
 			// no cards found to fill the spot, clean up and break out
 			if (spaceInRow !== layout.perRow) {
-				// console.log('Need to cleanup partial row!');
 				// Incomplete row, remove partial row
 				const newEnd = refCards.length - (layout.perRow - spaceInRow);
 				refCards.slice(newEnd).forEach(card => {
@@ -203,9 +216,6 @@ export class SheetLayout {
 				refCards = refCards.slice(0, newEnd);
 			}
 			return refCards;
-		}
-		if (availableLinesY > 0 && extraCards.optional.length > 0) {
-			console.warn('Got through all cards?', extraCards);
 		}
 		return refCards;
 	};
@@ -239,7 +249,6 @@ export class SheetLayout {
 		const pageClasses = [ 'abilities', 'page', layout.orientation, `row-cards-${layout.perRow}` ];
 		let p = 1;
 		const abilityCardPages: JSX.Element[] = [];
-		// console.log('Layout:', layout);
 		let numAbilitiesPlaced = 0;
 		while (numAbilitiesPlaced < allAbilities.length) {
 			// build a single page
@@ -349,7 +358,6 @@ export class SheetLayout {
 				pageH += rowH;
 				if (rowH > 0) {
 					pageH += 2.5; // For vertical card gap between rows
-					// console.log(`Row (${rowStart + 1}, ${n}):`, allAbilities.slice(rowStart, n).map(a => a.name), 'Height', rowH);
 				}
 
 				// If we didn't fill this row, break out to start getting filler cards
@@ -358,23 +366,18 @@ export class SheetLayout {
 				}
 			}
 			const filledSlotsInLastRow = (pageAbilityGrid.length % layout.perRow) || layout.perRow;
-			// console.log('last row:', abilitiesInLastRow, 'pageH', pageH, 'lines', layout.linesY);
 			if (filledSlotsInLastRow < layout.perRow || pageH < layout.linesY) {
 				// try to find filler cards that will fit
 				const spacesToFill = layout.perRow - filledSlotsInLastRow;
 				let spaceY = layout.linesY - pageH + rowH;
-				// console.log(`Need more cards, with ${pageAbilities.length} existing cards to fill out ${spaceY} lines in rows of ${layout.perRow} cards`);
 				if (spacesToFill === 0) {
 					// new row, so remove prev rowH
 					spaceY -= rowH;
 					rowH = 0;
 				}
-				// console.log('overall spaceY:', spaceY, '/', layout.linesY, ' current rowH:', rowH);
 				refCards = SheetLayout.getFillerCards(spacesToFill, spaceY, rowH, extraCards, layout);
-				// console.log('reference cards:', refCards);
 
 				if (refCards.length < spacesToFill && filledSlotsInLastRow < layout.perRow) {
-					// console.log('Need to cleanup partial abilities row!');
 					// Incomplete row, remove partial row
 					const newEnd = pageAbilityGrid.length - filledSlotsInLastRow;
 					numAbilitiesPlaced -= filledSlotsInLastRow;
@@ -383,10 +386,8 @@ export class SheetLayout {
 			}
 
 			if (numAbilitiesPlaced === pageStart) {
-				console.warn(`Didn't add any abilities to this page! (pg ${abilityCardPages.length}), n=${numAbilitiesPlaced}/${allAbilities.length}`);
 				numAbilitiesPlaced = allAbilities.length;
 			}
-			// console.log(`page abilities (${pageStart}, ${n}):`, pageAbilities);
 			abilityCardPages.push(
 				<Fragment key={`abilities-${p++}`}>
 					<hr className='dashed' />

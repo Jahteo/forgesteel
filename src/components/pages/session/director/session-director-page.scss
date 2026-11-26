@@ -4,7 +4,7 @@
 	flex-direction: column;
 
 	.session-director-page-content {
-		background-color: rgb(230, 230, 230);
+		background-color: var(--fs-canvas);
 		flex: 1 1 0;
 		display: flex;
 		flex-direction: column;
@@ -13,7 +13,7 @@
 		.session-page-content-selector {
 			flex: 0 0 auto;
 			padding: 10px 20px;
-			background-color: rgb(200, 200, 200);
+			background-color: var(--fs-chrome);
 			display: flex;
 			flex-direction: column;
 			align-items: center;
@@ -28,14 +28,23 @@
 	}
 }
 
-html[data-theme="dark"] {
-	.session-director-page {
-		.session-director-page-content {
-			background-color: rgb(55, 55, 55);
+.reward-hero-row {
+	border: 1px solid rgba(5, 5, 5, 0.1);
+	border-radius: 5px;
+	padding: 8px 10px;
+}
 
-			.session-page-content-selector {
-				background-color: rgb(0, 0, 0);
-			}
-		}
+.reward-spin-content {
+	text-align: center;
+
+	.ant-statistic-content {
+		font-size: 24px;
+		line-height: 1.2;
+	}
+}
+
+html[data-theme="dark"] {
+	.reward-hero-row {
+		border-color: rgba(255, 255, 255, 0.2);
 	}
 }

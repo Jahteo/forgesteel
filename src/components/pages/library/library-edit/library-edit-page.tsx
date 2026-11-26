@@ -3,6 +3,7 @@ import { CloseOutlined, SaveOutlined } from '@ant-design/icons';
 import { Sourcebook, SourcebookElementKind } from '@/models/sourcebook';
 import { Adventure } from '@/models/adventure';
 import { AdventureEditPanel } from '@/components/panels/edit/adventure-edit/adventure-edit-panel';
+import { Alert } from 'antd';
 import { Ancestry } from '@/models/ancestry';
 import { AncestryEditPanel } from '@/components/panels/edit/ancestry-edit/ancestry-edit-panel';
 import { AppHeader } from '@/components/panels/app-header/app-header';
@@ -20,6 +21,8 @@ import { Element } from '@/models/element';
 import { Encounter } from '@/models/encounter';
 import { EncounterEditPanel } from '@/components/panels/edit/encounter-edit/encounter-edit-panel';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
+import { Extension } from '@/models/extension';
+import { ExtensionEditPanel } from '@/components/panels/edit/extension-edit/extension-edit-panel';
 import { FeatureEditPanel } from '@/components/panels/edit/feature-edit/feature-edit-panel';
 import { Format } from '@/utils/format';
 import { HeroClass } from '@/models/class';
@@ -50,6 +53,7 @@ import { TerrainEditPanel } from '@/components/panels/edit/terrain-edit/terrain-
 import { Title } from '@/models/title';
 import { TitleEditPanel } from '@/components/panels/edit/title-edit/title-edit-panel';
 import { Utils } from '@/utils/utils';
+import { useDirectorSourcebooks } from '@/contexts/data-context';
 import { useIsSmall } from '@/hooks/use-is-small';
 import { useNavigation } from '@/hooks/use-navigation';
 import { useParams } from 'react-router';
@@ -68,76 +72,83 @@ interface Props {
 
 export const LibraryEditPage = (props: Props) => {
 	const isSmall = useIsSmall();
+	// Encounters, maps and adventures are edited with their monster groups as the director's tools will see them
+	const directorSourcebooks = useDirectorSourcebooks();
 	const navigation = useNavigation();
 	const { kind, sourcebookID, elementID } = useParams<{ kind: SourcebookElementKind, sourcebookID: string, elementID: string }>();
-	const [ element, setElement ] = useState<Element>(() => {
-		const sourcebook = props.sourcebooks.find(s => s.id === sourcebookID)!;
-		let original: Element;
-		switch (kind!) {
-			case 'adventure':
-				original = sourcebook.adventures.find(e => e.id === elementID)!;
-				break;
-			case 'ancestry':
-				original = sourcebook.ancestries.find(e => e.id === elementID)!;
-				break;
-			case 'career':
-				original = sourcebook.careers.find(e => e.id === elementID)!;
-				break;
-			case 'class':
-				original = sourcebook.classes.find(e => e.id === elementID)!;
-				break;
-			case 'complication':
-				original = sourcebook.complications.find(e => e.id === elementID)!;
-				break;
-			case 'culture':
-				original = sourcebook.cultures.find(e => e.id === elementID)!;
-				break;
-			case 'domain':
-				original = sourcebook.domains.find(e => e.id === elementID)!;
-				break;
-			case 'encounter':
-				original = sourcebook.encounters.find(e => e.id === elementID)!;
-				break;
-			case 'item':
-				original = sourcebook.items.find(e => e.id === elementID)!;
-				break;
-			case 'imbuement':
-				original = sourcebook.imbuements.find(e => e.id === elementID)!;
-				break;
-			case 'kit':
-				original = sourcebook.kits.find(e => e.id === elementID)!;
-				break;
-			case 'monster-group':
-				original = sourcebook.monsterGroups.find(e => e.id === elementID)!;
-				break;
-			case 'montage':
-				original = sourcebook.montages.find(e => e.id === elementID)!;
-				break;
-			case 'negotiation':
-				original = sourcebook.negotiations.find(e => e.id === elementID)!;
-				break;
-			case 'perk':
-				original = sourcebook.perks.find(e => e.id === elementID)!;
-				break;
-			case 'project':
-				original = sourcebook.projects.find(e => e.id === elementID)!;
-				break;
-			case 'subclass':
-				original = sourcebook.subclasses.find(e => e.id === elementID)!;
-				break;
-			case 'tactical-map':
-				original = sourcebook.tacticalMaps.find(e => e.id === elementID)!;
-				break;
-			case 'terrain':
-				original = sourcebook.terrain.find(e => e.id === elementID)!;
-				break;
-			case 'title':
-				original = sourcebook.titles.find(e => e.id === elementID)!;
-				break;
+
+	const findOriginal = (): Element | undefined => {
+		const sourcebook = props.sourcebooks.find(s => s.id === sourcebookID);
+		if (!sourcebook) {
+			return undefined;
 		}
-		return Utils.copy(original) as Element;
-	});
-	const [ dirty, setDirty ] = useState<boolean>(false);
+
+		switch (kind) {
+			case 'adventure':
+				return sourcebook.adventures.find(e => e.id === elementID);
+			case 'ancestry':
+				return sourcebook.ancestries.find(e => e.id === elementID);
+			case 'career':
+				return sourcebook.careers.find(e => e.id === elementID);
+			case 'class':
+				return sourcebook.classes.find(e => e.id === elementID);
+			case 'complication':
+				return sourcebook.complications.find(e => e.id === elementID);
+			case 'culture':
+				return sourcebook.cultures.find(e => e.id === elementID);
+			case 'domain':
+				return sourcebook.domains.find(e => e.id === elementID);
+			case 'encounter':
+				return sourcebook.encounters.find(e => e.id === elementID);
+			case 'extension':
+				return sourcebook.extensions.find(e => e.id === elementID);
+			case 'item':
+				return sourcebook.items.find(e => e.id === elementID);
+			case 'imbuement':
+				return sourcebook.imbuements.find(e => e.id === elementID);
+			case 'kit':
+				return sourcebook.kits.find(e => e.id === elementID);
+			case 'monster-group':
+				return sourcebook.monsterGroups.find(e => e.id === elementID);
+			case 'montage':
+				return sourcebook.montages.find(e => e.id === elementID);
+			case 'negotiation':
+				return sourcebook.negotiations.find(e => e.id === elementID);
+			case 'perk':
+				return sourcebook.perks.find(e => e.id === elementID);
+			case 'project':
+				return sourcebook.projects.find(e => e.id === elementID);
+			case 'subclass':
+				return sourcebook.subclasses.find(e => e.id === elementID);
+			case 'tactical-map':
+				return sourcebook.tacticalMaps.find(e => e.id === elementID);
+			case 'terrain':
+				return sourcebook.terrain.find(e => e.id === elementID);
+			case 'title':
+				return sourcebook.titles.find(e => e.id === elementID);
+		}
+
+		return undefined;
+	};
+
+	const startEditing = () => {
+		const original = findOriginal();
+		return {
+			route: `${kind}/${sourcebookID}/${elementID}`,
+			element: original ? Utils.copy(original) : undefined,
+			dirty: false
+		};
+	};
+
+	// The working copy is tagged with the route it came from. Router reuses this component
+	// across edit routes, so without the tag a second editor would keep showing - and saving -
+	// the element the first one was working on.
+	const [ state, setState ] = useState(startEditing);
+	if (state.route !== `${kind}/${sourcebookID}/${elementID}`) {
+		setState(startEditing());
+	}
+
+	const { element, dirty } = state;
 
 	const getSubheader = () => {
 		return `${Format.capitalize(kind!.split('-').join(' '))} Builder`;
@@ -145,13 +156,11 @@ export const LibraryEditPage = (props: Props) => {
 
 	useTitle(getSubheader());
 
-	const applyChanges = (element: Element) => {
-		const copy = Utils.copy(element);
-		setElement(copy);
-		setDirty(true);
+	const applyChanges = (changed: Element) => {
+		setState(current => ({ ...current, element: Utils.copy(changed), dirty: true }));
 	};
 
-	const getEditSection = () => {
+	const getEditSection = (element: Element) => {
 		switch (kind) {
 			case 'adventure':
 				return (
@@ -159,7 +168,7 @@ export const LibraryEditPage = (props: Props) => {
 						<AdventureEditPanel
 							key={element.id}
 							adventure={element as Adventure}
-							sourcebooks={props.sourcebooks}
+							sourcebooks={directorSourcebooks}
 							onChange={applyChanges}
 						/>
 					</div>
@@ -229,10 +238,20 @@ export const LibraryEditPage = (props: Props) => {
 					<EncounterEditPanel
 						key={element.id}
 						encounter={element as Encounter}
-						sourcebooks={props.sourcebooks}
+						sourcebooks={directorSourcebooks}
 						onChange={applyChanges}
 						showMonster={props.showMonster}
 						showTerrain={props.showTerrain}
+					/>
+				);
+			case 'extension':
+				return (
+					<ExtensionEditPanel
+						key={element.id}
+						extension={element as Extension}
+						sourcebooks={props.sourcebooks}
+						mode={PanelMode.Full}
+						onChange={applyChanges}
 					/>
 				);
 			case 'imbuement':
@@ -334,7 +353,7 @@ export const LibraryEditPage = (props: Props) => {
 							key={element.id}
 							map={element as TacticalMap}
 							display={TacticalMapDisplayType.DirectorEdit}
-							sourcebooks={props.sourcebooks}
+							sourcebooks={directorSourcebooks}
 							mode={PanelMode.Full}
 							updateMap={applyChanges}
 						/>
@@ -371,16 +390,26 @@ export const LibraryEditPage = (props: Props) => {
 				<AppHeader subheader={getSubheader()}>
 					<ButtonGroup
 						buttons={[
-							{ type: 'button', label: isSmall ? undefined : 'Save Changes', icon: <SaveOutlined />, primary: true, disabled: !dirty, onClick: () => props.saveChanges(kind!, sourcebookID!, element) },
+							{ type: 'button', label: isSmall ? undefined : 'Save Changes', icon: <SaveOutlined />, primary: true, disabled: !dirty || !element, onClick: () => props.saveChanges(kind!, sourcebookID!, element!) },
 							{ type: 'button', label: isSmall ? undefined : 'Cancel', icon: <CloseOutlined />, onClick: () => navigation.goToLibrary(kind!, elementID!) }
 						]}
 					/>
 				</AppHeader>
 				<div className='library-edit-page-content'>
-					{getEditSection()}
+					{
+						element ?
+							getEditSection(element)
+							:
+							<Alert
+								type='warning'
+								showIcon={true}
+								title='This element could not be found. It may have been deleted, or the link points to homebrew that only exists on another device.'
+							/>
+					}
 				</div>
 				<AppFooter
 					page='library'
+					hero={null}
 					params={props.params}
 				/>
 			</div>

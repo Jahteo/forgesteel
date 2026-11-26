@@ -1,5 +1,11 @@
 # Development Plans
 
+### Bug Reports
+
+The Reference screen shows all languages for every sourcebook
+
+### Plans
+
 * Improve editors:
   * Modifier editor
 

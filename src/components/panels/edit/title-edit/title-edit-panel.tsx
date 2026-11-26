@@ -1,7 +1,6 @@
-import { Space, Tabs } from 'antd';
-import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
+import { Alert, Space, Tabs } from 'antd';
 import { Feature } from '@/models/feature';
-import { FeatureListEditPanel } from '@/components/panels/edit/feature-list-edit/feature-list-edit-panel';
+import { FeatureListEditPanel } from '@/components/panels/edit/list-edit/list-edit-panel';
 import { HeaderText } from '@/components/controls/header-text/header-text';
 import { NameDescEditPanel } from '@/components/panels/edit/name-desc-edit/name-desc-edit-panel';
 import { NumberSpin } from '@/components/controls/number-spin/number-spin';
@@ -85,64 +84,69 @@ export const TitleEditPanel = (props: Props) => {
 		};
 
 		return (
-			<FeatureListEditPanel
-				title='Features'
-				features={title.features}
-				sourcebooks={props.sourcebooks}
-				onChange={onChange}
-			/>
+			<Space orientation='vertical' style={{ width: '100%' }}>
+				<Alert
+					type='info'
+					showIcon={true}
+					title='A title grants one of these options; if you add more than one, the hero chooses between them.'
+				/>
+				<FeatureListEditPanel
+					title='Options'
+					features={title.features}
+					sourcebooks={props.sourcebooks}
+					onChange={onChange}
+				/>
+			</Space>
 		);
 	};
 
 	return (
-		<ErrorBoundary>
-			<div className='title-edit-panel'>
-				<div className='title-workspace-column'>
-					<Tabs
-						items={[
-							{
-								key: '1',
-								label: 'Title',
-								children: getNameAndDescriptionSection()
-							},
-							{
-								key: '2',
-								label: 'Details',
-								children: getTitleEditSection()
-							},
-							{
-								key: '3',
-								label: 'Features',
-								children: getFeaturesEditSection()
-							}
-						]}
-					/>
-				</div>
-				{
-					props.mode === PanelMode.Full ?
-						<div className='title-preview-column'>
-							<Tabs
-								items={[
-									{
-										key: '1',
-										label: 'Preview',
-										children: (
-											<SelectablePanel>
-												<TitlePanel
-													key={revision}
-													title={title}
-													sourcebooks={props.sourcebooks}
-													mode={PanelMode.Full}
-												/>
-											</SelectablePanel>
-										)
-									}
-								]}
-							/>
-						</div>
-						: null
-				}
+		<div className='title-edit-panel'>
+			<div className='title-workspace-column'>
+				<Tabs
+					items={[
+						{
+							key: '1',
+							label: 'Title',
+							children: getNameAndDescriptionSection()
+						},
+						{
+							key: '2',
+							label: 'Details',
+							children: getTitleEditSection()
+						},
+						{
+							key: '3',
+							label: 'Options',
+							children: getFeaturesEditSection()
+						}
+					]}
+				/>
 			</div>
-		</ErrorBoundary>
+			{
+				props.mode === PanelMode.Full ?
+					<div className='title-preview-column'>
+						<Tabs
+							items={[
+								{
+									key: '1',
+									label: 'Preview',
+									children: (
+										<SelectablePanel>
+											<TitlePanel
+												key={revision}
+												title={title}
+												sourcebooks={props.sourcebooks}
+												mode={PanelMode.Full}
+											/>
+										</SelectablePanel>
+									)
+								}
+							]}
+						/>
+					</div>
+					: null
+			}
+		</div>
 	);
 };

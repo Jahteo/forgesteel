@@ -1,9 +1,10 @@
 import { Alert, Button, Divider, Flex, Segmented } from 'antd';
 import { AppFooter, FooterParams } from '@/components/panels/app-footer/app-footer';
-import { ArrowRightOutlined, CopyOutlined, DoubleLeftOutlined, DoubleRightOutlined, EditOutlined, FilterFilled, FilterOutlined, PlayCircleOutlined, UploadOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, CopyOutlined, DoubleLeftOutlined, DoubleRightOutlined, EditOutlined, FilterFilled, FilterOutlined, PlayCircleOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import { ButtonConfig, ButtonGroup, DangerConfig, DropdownConfig } from '@/components/controls/button-group/button-group';
 import { ReactNode, useState } from 'react';
 import { Sourcebook, SourcebookElementKind } from '@/models/sourcebook';
+import { useDirectorSourcebooks, useHiddenSourcebookIDs } from '@/contexts/data-context';
 import { AddBtn } from '@/components/pages/library/library-list/controls/add-btn';
 import { Adventure } from '@/models/adventure';
 import { AdventurePanel } from '@/components/panels/elements/adventure-panel/adventure-panel';
@@ -27,6 +28,10 @@ import { Encounter } from '@/models/encounter';
 import { EncounterPanel } from '@/components/panels/elements/encounter-panel/encounter-panel';
 import { EncounterSheetPage } from '@/components/panels/classic-sheet/encounter-sheet/encounter-sheet-page';
 import { ErrorBoundary } from '@/components/controls/error-boundary/error-boundary';
+import { Extension } from '@/models/extension';
+import { ExtensionChangeType } from '@/enums/extension-change-type';
+import { ExtensionLogic } from '@/logic/extension-logic';
+import { ExtensionPanel } from '@/components/panels/elements/extension-panel/extension-panel';
 import { FactoryLogic } from '@/logic/factory-logic';
 import { Format } from '@/utils/format';
 import { HeaderText } from '@/components/controls/header-text/header-text';
@@ -59,6 +64,7 @@ import { Project } from '@/models/project';
 import { ProjectPanel } from '@/components/panels/elements/project-panel/project-panel';
 import { SearchBox } from '@/components/controls/text-input/text-input';
 import { SelectorRow } from '@/components/panels/selector-row/selector-row';
+import { SharedElementKind } from '@/logic/sharing-logic';
 import { SourcebookLogic } from '@/logic/sourcebook-logic';
 import { SourcebookType } from '@/enums/sourcebook-type';
 import { SubClass } from '@/models/subclass';
@@ -72,7 +78,6 @@ import { Title } from '@/models/title';
 import { TitlePanel } from '@/components/panels/elements/title-panel/title-panel';
 import { Toggle } from '@/components/controls/toggle/toggle';
 import { ViewSelector } from '@/components/panels/view-selector/view-selector';
-import { useHiddenSourcebookIDs } from '@/contexts/data-context';
 import { useIsSmall } from '@/hooks/use-is-small';
 import { useNavigation } from '@/hooks/use-navigation';
 import { useParams } from 'react-router';
@@ -91,6 +96,7 @@ interface Props {
 	moveElement: (kind: SourcebookElementKind, sourcebookID: string, element: Element) => void;
 	deleteElement: (kind: SourcebookElementKind, sourcebookID: string, element: Element) => void;
 	exportElementData: (category: string, element: Element) => void;
+	copyElementCode: (kind: SharedElementKind, element: Element) => void;
 	exportElementImage: (category: string, element: Element) => void;
 	exportElementPdf: (category: string, element: Element, resolution: 'standard' | 'high') => void;
 	startEncounter: (encounter: Encounter) => void;
@@ -119,6 +125,9 @@ export const LibraryListPage = (props: Props) => {
 	const [ monsterFilter, setMonsterFilter ] = useState<MonsterFilter>(FactoryLogic.createMonsterFilter());
 	const [ sourcebookID, setSourcebookID ] = useState<string>(props.sourcebooks.filter(sb => sb.type === SourcebookType.Homebrew).length > 0 ? Collections.sort(props.sourcebooks, sb => sb.name).filter(sb => sb.type === SourcebookType.Homebrew)[0].id : '');
 	const hiddenSourcebookIDs = useHiddenSourcebookIDs();
+	// Encounters, maps and adventures are shown with their monster groups as the director's tools will see them;
+	// everything else (monster groups especially) is shown as published
+	const directorSourcebooks = useDirectorSourcebooks();
 	useTitle('Library');
 
 	if (kind !== previousCategory) {
@@ -163,6 +172,9 @@ export const LibraryListPage = (props: Props) => {
 				break;
 			case 'encounter':
 				list = LibraryLogic.getEncounters(getSourcebooks(), searchTerm);
+				break;
+			case 'extension':
+				list = LibraryLogic.getExtensions(getSourcebooks(), searchTerm);
 				break;
 			case 'imbuement':
 				list = LibraryLogic.getImbuements(getSourcebooks(), searchTerm);
@@ -220,7 +232,7 @@ export const LibraryListPage = (props: Props) => {
 							<div style={{ padding: '20px', overflow: 'auto' }}>
 								<EncounterSheetPage
 									encounter={element as Encounter}
-									sourcebooks={props.sourcebooks}
+									sourcebooks={directorSourcebooks}
 								/>
 							</div>
 						);
@@ -258,7 +270,7 @@ export const LibraryListPage = (props: Props) => {
 		} else {
 			switch (category) {
 				case 'adventure':
-					getPanel = (element: Element) => <AdventurePanel key={element.id} adventure={element as Adventure} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
+					getPanel = (element: Element) => <AdventurePanel key={element.id} adventure={element as Adventure} sourcebooks={directorSourcebooks} mode={PanelMode.Full} />;
 					break;
 				case 'ancestry':
 					getPanel = (element: Element) => <AncestryPanel key={element.id} ancestry={element as Ancestry} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
@@ -279,7 +291,10 @@ export const LibraryListPage = (props: Props) => {
 					getPanel = (element: Element) => <DomainPanel key={element.id} domain={element as Domain} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
 					break;
 				case 'encounter':
-					getPanel = (element: Element) => <EncounterPanel key={element.id} encounter={element as Encounter} sourcebooks={props.sourcebooks} mode={PanelMode.Full} showTools={tool => props.showEncounterTools(element as Encounter, tool)} />;
+					getPanel = (element: Element) => <EncounterPanel key={element.id} encounter={element as Encounter} sourcebooks={directorSourcebooks} mode={PanelMode.Full} showTools={tool => props.showEncounterTools(element as Encounter, tool)} />;
+					break;
+				case 'extension':
+					getPanel = (element: Element) => <ExtensionPanel key={element.id} extension={element as Extension} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
 					break;
 				case 'imbuement':
 					getPanel = (element: Element) => <ImbuementPanel key={element.id} imbuement={element as Imbuement} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
@@ -314,10 +329,10 @@ export const LibraryListPage = (props: Props) => {
 					getPanel = (element: Element) => <SubclassPanel key={element.id} subclass={element as SubClass} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
 					break;
 				case 'tactical-map':
-					getPanel = (element: Element) => <TacticalMapPanel key={element.id} map={element as TacticalMap} sourcebooks={props.sourcebooks} display={TacticalMapDisplayType.DirectorView} mode={PanelMode.Full} />;
+					getPanel = (element: Element) => <TacticalMapPanel key={element.id} map={element as TacticalMap} sourcebooks={directorSourcebooks} display={TacticalMapDisplayType.DirectorView} mode={PanelMode.Full} />;
 					break;
 				case 'terrain':
-					getPanel = (element: Element) => <TerrainPanel key={element.id} terrain={element as Terrain} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
+					getPanel = (element: Element) => <TerrainPanel key={element.id} terrain={element as Terrain} showCustomizations={true} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
 					break;
 				case 'title':
 					getPanel = (element: Element) => <TitlePanel key={element.id} title={element as Title} sourcebooks={props.sourcebooks} mode={PanelMode.Full} />;
@@ -330,6 +345,10 @@ export const LibraryListPage = (props: Props) => {
 
 	const getSidebar = () => {
 		const getElementListHeader = () => {
+			if (isSmall) {
+				return null;
+			}
+
 			switch (category) {
 				case 'monster-group':
 					return (
@@ -347,7 +366,7 @@ export const LibraryListPage = (props: Props) => {
 								/>
 								<Button
 									disabled={!showMonsters}
-									icon={showMonsterFilter ? <FilterFilled style={{ color: 'rgb(22, 119, 255)' }} /> : <FilterOutlined />}
+									icon={showMonsterFilter ? <FilterFilled style={{ color: 'var(--fs-accent)' }} /> : <FilterOutlined />}
 									onClick={() => setShowMonsterFilter(!showMonsterFilter)}
 								/>
 							</Flex>
@@ -400,9 +419,7 @@ export const LibraryListPage = (props: Props) => {
 			sortedHeaders.forEach(header => {
 				if (header) {
 					listItems.push(
-						<div key={`${header}-header`} className='selection-list-group-header'>
-							<HeaderText level={3}>{header || 'List'}</HeaderText>
-						</div>
+						<HeaderText key={`${header}-header`} level={3}>{header || 'List'}</HeaderText>
 					);
 				}
 
@@ -415,7 +432,12 @@ export const LibraryListPage = (props: Props) => {
 							selected={selectedID === a.id}
 							content={(category === 'monster-group') && showMonsters ? <MonsterInfo monster={a as Monster} /> : a.name || `Unnamed ${Format.capitalize(category.split('-').join(' '))}`}
 							info={LibraryLogic.getInfo(a, category, showMonsters)}
-							onSelect={() => navigation.goToLibrary(category, a.id)}
+							onSelect={() => {
+								if (isSmall) {
+									setShowSidebar(false);
+								}
+								navigation.goToLibrary(category, a.id);
+							}}
 						/>
 					);
 				});
@@ -436,55 +458,123 @@ export const LibraryListPage = (props: Props) => {
 			return listItems;
 		};
 
+		const playerCategories: { kind: SourcebookElementKind, label: string }[] = [
+			{
+				kind: 'ancestry',
+				label: 'Ancestries'
+			},
+			{
+				kind: 'career',
+				label: 'Careers'
+			},
+			{
+				kind: 'class',
+				label: 'Classes'
+			},
+			{
+				kind: 'complication',
+				label: 'Complications'
+			},
+			{
+				kind: 'culture',
+				label: 'Cultures'
+			},
+			{
+				kind: 'domain',
+				label: 'Domains'
+			},
+			{
+				kind: 'imbuement',
+				label: 'Imbuements'
+			},
+			{
+				kind: 'item',
+				label: 'Items'
+			},
+			{
+				kind: 'kit',
+				label: 'Kits'
+			},
+			{
+				kind: 'perk',
+				label: 'Perks'
+			},
+			{
+				kind: 'project',
+				label: 'Projects'
+			},
+			{
+				kind: 'subclass',
+				label: 'Subclasses'
+			},
+			{
+				kind: 'title',
+				label: 'Titles'
+			}
+		];
+
+		const directorCategories: { kind: SourcebookElementKind, label: string }[] = [
+			{
+				kind: 'adventure',
+				label: 'Adventures'
+			},
+			{
+				kind: 'encounter',
+				label: 'Encounters'
+			},
+			{
+				kind: 'monster-group',
+				label: showMonsters ? 'Monsters' : 'Monster Groups'
+			},
+			{
+				kind: 'montage',
+				label: 'Montages'
+			},
+			{
+				kind: 'negotiation',
+				label: 'Negotiations'
+			},
+			{
+				kind: 'tactical-map',
+				label: 'Tactical Maps'
+			},
+			{
+				kind: 'terrain',
+				label: 'Terrain'
+			}
+		];
+
+		// Extensions change elements from both lists, so they get a section of their own
+		const homebrewCategories: { kind: SourcebookElementKind, label: string }[] = [
+			{
+				kind: 'extension',
+				label: 'Extensions'
+			}
+		];
+
+		let className = 'selection-sidebar';
+		if (!showSidebar) {
+			className += ' closed';
+		}
+		if (isSmall) {
+			className += ' full-width';
+		}
+
 		return (
-			<div className={showSidebar ? 'selection-sidebar' : 'selection-sidebar closed'}>
-				<div className='selection-toolbar'>
-					{
-						showSidebar ?
-							<SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-							: null
-					}
-					{
-						showSidebar ?
-							<Button onClick={props.showSourcebooks}>
-								Sourcebooks
-							</Button>
-							: null
-					}
-					<Button icon={showSidebar ? <DoubleLeftOutlined /> : <DoubleRightOutlined />} style={{ flex: '0 0 auto' }} onClick={() => setShowSidebar(!showSidebar)} />
-				</div>
+			<div className={className}>
+				<Button icon={showSidebar ? <DoubleLeftOutlined /> : <DoubleRightOutlined />} style={{ height: '100%' }} onClick={() => setShowSidebar(!showSidebar)} />
 				{
 					showSidebar ?
 						<div className='selection-content'>
-							<div className='selection-list categories'>
-								<div className='selection-list-group-header'>
-									<HeaderText level={3}>For Players</HeaderText>
-								</div>
-								<SelectorRow selected={category === 'ancestry'} content='Ancestries' info={getList('ancestry').length} onSelect={() => navigation.goToLibrary('ancestry')} />
-								<SelectorRow selected={category === 'career'} content='Careers' info={getList('career').length} onSelect={() => navigation.goToLibrary('career')} />
-								<SelectorRow selected={category === 'class'} content='Classes' info={getList('class').length} onSelect={() => navigation.goToLibrary('class')} />
-								<SelectorRow selected={category === 'complication'} content='Complications' info={getList('complication').length} onSelect={() => navigation.goToLibrary('complication')} />
-								<SelectorRow selected={category === 'culture'} content='Cultures' info={getList('culture').length} onSelect={() => navigation.goToLibrary('culture')} />
-								<SelectorRow selected={category === 'domain'} content='Domains' info={getList('domain').length} onSelect={() => navigation.goToLibrary('domain')} />
-								<SelectorRow selected={category === 'imbuement'} content='Imbuements' info={getList('imbuement').length} onSelect={() => navigation.goToLibrary('imbuement')} />
-								<SelectorRow selected={category === 'item'} content='Items' info={getList('item').length} onSelect={() => navigation.goToLibrary('item')} />
-								<SelectorRow selected={category === 'kit'} content='Kits' info={getList('kit').length} onSelect={() => navigation.goToLibrary('kit')} />
-								<SelectorRow selected={category === 'perk'} content='Perks' info={getList('perk').length} onSelect={() => navigation.goToLibrary('perk')} />
-								<SelectorRow selected={category === 'project'} content='Projects' info={getList('project').length} onSelect={() => navigation.goToLibrary('project')} />
-								<SelectorRow selected={category === 'subclass'} content='Subclasses' info={getList('subclass').length} onSelect={() => navigation.goToLibrary('subclass')} />
-								<SelectorRow selected={category === 'title'} content='Titles' info={getList('title').length} onSelect={() => navigation.goToLibrary('title')} />
-								<div className='selection-list-group-header'>
-									<HeaderText level={3}>For Directors</HeaderText>
-								</div>
-								<SelectorRow selected={category === 'adventure'} content='Adventures' info={getList('adventure').length} onSelect={() => navigation.goToLibrary('adventure')} />
-								<SelectorRow selected={category === 'encounter'} content='Encounters' info={getList('encounter').length} onSelect={() => navigation.goToLibrary('encounter')} />
-								<SelectorRow selected={category === 'monster-group'} content={showMonsters ? 'Monsters' : 'Monster Groups'} info={showMonsters ? getList('monster').length : getList('monster-group').length} onSelect={() => navigation.goToLibrary('monster-group')} />
-								<SelectorRow selected={category === 'montage'} content='Montages' info={getList('montage').length} onSelect={() => navigation.goToLibrary('montage')} />
-								<SelectorRow selected={category === 'negotiation'} content='Negotiations' info={getList('negotiation').length} onSelect={() => navigation.goToLibrary('negotiation')} />
-								<SelectorRow selected={category === 'tactical-map'} content='Tactical Maps' info={getList('tactical-map').length} onSelect={() => navigation.goToLibrary('tactical-map')} />
-								<SelectorRow selected={category === 'terrain'} content='Terrain' info={getList('terrain').length} onSelect={() => navigation.goToLibrary('terrain')} />
+							<div className='selection-list'>
+								<HeaderText level={3}>For Players</HeaderText>
+								{playerCategories.map(c => <SelectorRow key={c.kind} selected={category === c.kind} content={c.label} info={getList(c.kind).length} onSelect={() => navigation.goToLibrary(c.kind)} />)}
+								<HeaderText level={3}>For Directors</HeaderText>
+								{directorCategories.map(c => <SelectorRow key={c.kind} selected={category === c.kind} content={c.label} info={getList(c.kind).length} onSelect={() => navigation.goToLibrary(c.kind)} />)}
+								<HeaderText level={3}>For Homebrewers</HeaderText>
+								{homebrewCategories.map(c => <SelectorRow key={c.kind} selected={category === c.kind} content={c.label} info={getList(c.kind).length} onSelect={() => navigation.goToLibrary(c.kind)} />)}
 							</div>
-							<div className='selection-list elements'>
+							<div className='selection-list'>
 								{getElementListHeader()}
 								{getElementListItems()}
 							</div>
@@ -501,6 +591,42 @@ export const LibraryListPage = (props: Props) => {
 			return [];
 		}
 
+		// Changes to this element can go in an extension, rather than a copy of the whole thing
+		const getNewExtension = () => {
+			const targetKind = ExtensionLogic.getTargetKind(category);
+			if (!targetKind || ((category === 'monster-group') && showMonsters)) {
+				// In the monster view, the element is a monster rather than its group
+				return null;
+			}
+
+			const extension = FactoryLogic.createExtension();
+			extension.name = `${element.name || 'Unnamed Element'} Extension`;
+			extension.targetKind = targetKind;
+			extension.targetID = element.id;
+
+			return extension;
+		};
+
+		const getExtend = () => {
+			const extension = getNewExtension();
+			if (!extension) {
+				return null;
+			}
+
+			return {
+				type: 'dropdown',
+				label: isSmall ? undefined : 'Extend',
+				icon: <PlusOutlined />,
+				popover: (
+					<div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '300px' }}>
+						<div>Create an extension that {ExtensionLogic.getChangeSummary(extension.targetKind)}, without copying it.</div>
+						<DestinationSelector sourcebooks={props.sourcebooks} sourcebookID={sourcebookID} setSourcebookID={setSourcebookID} />
+						<Button type='primary' onClick={() => props.createElement('extension', sourcebookID, extension)}>Create Extension</Button>
+					</div>
+				)
+			} as DropdownConfig;
+		};
+
 		const sourcebook = LibraryLogic.getSourcebook(element, category, props.sourcebooks, showMonsters);
 		if (!sourcebook) {
 			if (category === 'subclass') {
@@ -511,8 +637,9 @@ export const LibraryListPage = (props: Props) => {
 							type: 'button',
 							label: `Open ${c.name}`,
 							onClick: () => navigation.goToLibrary('class', c.id)
-						} as ButtonConfig
-					];
+						} as ButtonConfig,
+						getExtend()
+					].filter(item => !!item);
 				}
 			}
 
@@ -558,7 +685,7 @@ export const LibraryListPage = (props: Props) => {
 			if ((category === 'monster-group') && showMonsters) {
 				return {
 					type: 'dropdown',
-					label: isSmall ? undefined : 'Create Homebrew Version',
+					label: isSmall ? undefined : 'Homebrew',
 					icon: <CopyOutlined />,
 					popover: (
 						<Alert
@@ -572,14 +699,26 @@ export const LibraryListPage = (props: Props) => {
 			}
 
 			if (sourcebook.type !== SourcebookType.Homebrew) {
+				const extension = getNewExtension();
+
 				return {
 					type: 'dropdown',
-					label: isSmall ? undefined : 'Create Homebrew Version',
+					label: isSmall ? undefined : 'Homebrew',
 					icon: <CopyOutlined />,
 					popover: (
-						<div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '300px' }}>
+						<div style={{ display: 'flex', flexDirection: 'column', gap: '10px', minWidth: '300px', maxWidth: '400px' }}>
+							{
+								extension ?
+									<div>A homebrew version is a copy of this {ExtensionLogic.getTargetKindName(extension.targetKind).toLowerCase()} that you can change however you like. An extension {ExtensionLogic.getChangeSummary(extension.targetKind)}, without copying it.</div>
+									: null
+							}
 							<DestinationSelector sourcebooks={props.sourcebooks} sourcebookID={sourcebookID} setSourcebookID={setSourcebookID} />
-							<Button type='primary' onClick={() => props.createElement(category, sourcebookID, element)}>Create</Button>
+							<Button type='primary' block={true} icon={<CopyOutlined />} onClick={() => props.createElement(category, sourcebookID, element)}>Create Homebrew Version</Button>
+							{
+								extension ?
+									<Button block={true} icon={<PlusOutlined />} onClick={() => props.createElement('extension', sourcebookID, extension)}>Create Extension</Button>
+									: null
+							}
 						</div>
 					)
 				} as DropdownConfig;
@@ -720,6 +859,13 @@ export const LibraryListPage = (props: Props) => {
 						<Button onClick={() => props.exportElementData(cat, element)}>
 							Export as Data
 						</Button>
+						{
+							[ 'item', 'monster', 'title' ].includes(cat) ?
+								<Button onClick={() => props.copyElementCode(cat as SharedElementKind, element)}>
+									Copy Share Code
+								</Button>
+								: null
+						}
 					</div>
 				)
 			} as DropdownConfig;
@@ -748,6 +894,14 @@ export const LibraryListPage = (props: Props) => {
 					// This is a monster, not a group - can't be deleted here
 					return null;
 				}
+			}
+			if (category === 'extension') {
+				// Encounters can use the monsters an extension adds, just as they can a group's own
+				(element as Extension).changes.forEach(c => {
+					if (c.type === ExtensionChangeType.AddMonster) {
+						elements.push(c.data.monster);
+					}
+				});
 			}
 
 			const used: { element: Element, container: Element }[] = [];
@@ -788,7 +942,7 @@ export const LibraryListPage = (props: Props) => {
 
 		return [
 			getStart(),
-			getCreateHomebrew(),
+			getCreateHomebrew() || getExtend(),
 			getEdit(),
 			getCopy(),
 			getMove(),
@@ -836,6 +990,43 @@ export const LibraryListPage = (props: Props) => {
 		}
 	};
 
+	const getExtendedBy = (element: Element) => {
+		const targetKind = ExtensionLogic.getTargetKind(category);
+		if (!targetKind || (view !== 'modern')) {
+			return null;
+		}
+
+		const extensions = ExtensionLogic.getExtensionsFor([ element.id ], props.sourcebooks.filter(sb => !hiddenSourcebookIDs.includes(sb.id)));
+		if (extensions.length === 0) {
+			return null;
+		}
+
+		return (
+			<Alert
+				style={{ margin: '0 20px 10px 20px' }}
+				type='info'
+				showIcon={true}
+				title={
+					<>
+						<div>This {ExtensionLogic.getTargetKindName(targetKind).toLowerCase()} is extended by:</div>
+						<ul style={{ margin: 0 }}>
+							{
+								extensions.map(e => (
+									<li key={e.extension.id}>
+										<Button type='link' size='small' style={{ padding: 0 }} onClick={() => navigation.goToLibrary('extension', e.extension.id)}>
+											{e.extension.name || 'Unnamed Extension'}
+										</Button>
+										{' '}in {e.sourcebook.name || 'Unnamed Sourcebook'}
+									</li>
+								))
+							}
+						</ul>
+					</>
+				}
+			/>
+		);
+	};
+
 	const selected = getList(category).find(item => item.id == selectedID);
 	const getPanel = getElementPanel();
 
@@ -847,10 +1038,14 @@ export const LibraryListPage = (props: Props) => {
 						buttons={[
 							{
 								type: 'control',
+								control: <SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+							},
+							{
+								type: 'control',
 								control: (
 									<AddBtn
 										category={category}
-										sourcebooks={props.sourcebooks}
+										sourcebooks={directorSourcebooks}
 										showMonsters={showMonsters}
 										sourcebookID={sourcebookID}
 										setShowMonsters={setShowMonsters}
@@ -861,25 +1056,35 @@ export const LibraryListPage = (props: Props) => {
 								)
 							},
 							...getElementToolbarItems(),
-							{ type: 'control', control: getViewSelector() }
+							{ type: 'control', control: getViewSelector() },
+							{ type: 'button', label: 'Sourcebooks', onClick: props.showSourcebooks }
 						]}
 					/>
 				</AppHeader>
 				<ErrorBoundary>
 					<div className='library-list-page-content'>
 						{getSidebar()}
-						<div className='element-selected'>
-							{
-								selected ?
-									getPanel(selected)
-									:
-									<Empty text='Nothing selected' />
-							}
-						</div>
+						{
+							isSmall && showSidebar ?
+								null
+								:
+								<div className='element-selected'>
+									{
+										selected ?
+											<>
+												{getExtendedBy(selected)}
+												{getPanel(selected)}
+											</>
+											:
+											<Empty text='Nothing selected' />
+									}
+								</div>
+						}
 					</div>
 				</ErrorBoundary>
 				<AppFooter
 					page='library'
+					hero={null}
 					params={props.params}
 				/>
 			</div>

@@ -1,17 +1,19 @@
 import { Ability, AbilitySectionField, AbilitySectionPackage, AbilitySectionRoll, AbilitySectionText } from '@/models/ability';
-import { Feature, FeatureText } from '@/models/feature';
-import { FollowerSheet, ItemSheet, ProjectSheet } from '@/models/classic-sheets/hero-sheet';
+import { ComplicationSheet, FollowerSheet, ItemSheet, ProjectSheet } from '@/models/classic-sheets/hero-sheet';
+import { Feature, FeaturePotencyResistanceData, FeatureRollModifier, FeatureSurgeGainData, FeatureText } from '@/models/feature';
 import { AbilityLogic } from '@/logic/ability-logic';
 import { AbilitySheet } from '@/models/classic-sheets/ability-sheet';
 import { Characteristic } from '@/enums/characteristic';
 import { Collections } from '@/utils/collections';
 import { CreatureLogic } from '@/logic/creature-logic';
+import { FeatureLogic } from '@/logic/feature-logic';
 import { FeatureType } from '@/enums/feature-type';
 import { Format } from '@/utils/format';
 import { Hero } from '@/models/hero';
 import { HeroLogic } from '@/logic/hero-logic';
 import { Monster } from '@/models/monster';
 import { MonsterSheet } from '@/models/classic-sheets/monster-sheet';
+import { ResourceGainFrequency } from '@/enums/resource-gain-frequency';
 import { RulesItem } from '@/models/rules-item';
 import { StatBlockIcon } from '@/enums/stat-block-icon';
 import { TerrainSheet } from '@/models/classic-sheets/terrain-sheet';
@@ -44,27 +46,29 @@ export class SheetFormatter {
 		}
 	};
 
-	static convertFeaturesShort = (features: Feature[]): Feature[] => {
-		return this.convertFeatures(features.map(f => ({ feature: f, display: 'short' })));
+	static convertFeaturesShort = (features: Feature[], hero?: Hero): Feature[] => {
+		return this.convertFeatures(features.map(f => ({ feature: f, display: 'short' })), hero);
 	};
 
-	static convertFeatures = (features: { feature: Feature, display: 'short' | 'full' }[]): Feature[] => {
-		features.sort((a, b) => this.sortFeatures(a.feature, b.feature));
+	static convertFeatures = (features: { feature: Feature, display: 'short' | 'full' }[], hero?: Hero): Feature[] => {
+		const siblings = features.map(f => f.feature);
+		features.sort((a, b) => this.sortFeatures(a.feature, b.feature, siblings));
 		const results: Feature[] = [];
 		for (const fd of features) {
-			results.push(this.cleanupFeature(fd.feature, fd.display));
+			results.push(this.cleanupFeature(fd.feature, fd.display, hero));
 		}
 		return results;
 	};
 
-	static cleanupFeature = (feature: Feature, display: 'short' | 'full' = 'short'): Feature => {
+	static cleanupFeature = (feature: Feature, display: 'short' | 'full' = 'short', hero?: Hero): Feature => {
 		const result = Utils.copy(feature);
+		const description = feature.type === FeatureType.Text ? AbilityLogic.getTextEffect(feature.description, hero) : feature.description;
 		if (display !== 'full' && this.isVERYLongFeature(feature)) {
 			result.description = '*See Reference for details…*';
 		} else if (display !== 'full' && this.isLongFeature(feature)) {
-			result.description = this.shortenText(feature.description);
+			result.description = this.shortenText(description);
 		} else {
-			result.description = this.cleanupText(feature.description);
+			result.description = this.cleanupText(description);
 		}
 
 		return result;
@@ -90,34 +94,68 @@ export class SheetFormatter {
 		return result;
 	};
 
-	static enhanceFeatures = (features: Feature[]): Feature[] => {
-		features.sort(this.sortFeatures);
+	// Worded the way the Gaining Surges table on the reference card words it
+	static getSurgeGainSummary = (data: FeatureSurgeGainData) => {
+		const unit = data.value === '1' ? 'surge' : 'surges';
+		const frequency = data.frequency === ResourceGainFrequency.AtWill ? '' : ` (${data.frequency})`;
+		return `+${data.value} ${unit}: ${data.trigger}${frequency}`;
+	};
+
+	static getPotencyResistanceSummary = (data: FeaturePotencyResistanceData) => {
+		const characteristics = data.characteristics.length > 0 ? data.characteristics.join(', ') : 'All characteristics';
+		return `${characteristics} ${this.addSign(data.value)} when resisting potencies`;
+	};
+
+	// A threshold's benefit is a feature in its own right - prose, a surge gain, or a Multiple of
+	// both - and its name already sits on the requirement line, so take just the body text
+	static getThresholdBenefitText = (feature: Feature): string[] => {
+		switch (feature.type) {
+			case FeatureType.Multiple:
+				return [ feature.description, ...feature.data.features.flatMap(this.getThresholdBenefitText) ].filter(t => t);
+			case FeatureType.SurgeGain:
+				return [ this.getSurgeGainSummary(feature.data), feature.data.condition ].filter(t => t);
+			case FeatureType.PotencyResistance:
+				return [ this.getPotencyResistanceSummary(feature.data) ];
+			case FeatureType.RollModifier:
+				return [
+					`${feature.data.modifier} on ${FeatureLogic.getRollModifierScope(feature.data)}`,
+					feature.data.condition,
+					feature.description
+				].filter(t => t);
+			default:
+				return [ feature.description ].filter(t => t);
+		}
+	};
+
+	static enhanceFeatures = (features: Feature[], hero?: Hero): Feature[] => {
+		features.sort((a, b) => this.sortFeatures(a, b, features));
 		const results: Feature[] = [];
 		for (const feature of features) {
-			results.push(this.enhanceFeature(feature));
+			results.push(this.enhanceFeature(feature, hero));
 		}
 		return results;
 	};
 
-	static enhanceFeature = (feature: Feature): Feature => {
+	static enhanceFeature = (feature: Feature, hero?: Hero): Feature => {
 		const result = Utils.copy(feature);
-		result.description = this.enhanceMarkdown(feature.description);
+		const description = feature.type === FeatureType.Text ? AbilityLogic.getTextEffect(feature.description, hero) : feature.description;
+		result.description = this.enhanceMarkdown(description);
 		return result;
 	};
 
 	static enhanceMarkdown = (text: string) => {
 		text = text
-			.replace(/([MARIP]) < \[?([Ss]trong|[Aa]verage|[Ww]eak|\d)\]?/g, '$1<$2')
+			.replace(/([MARIP]) < \[?([Ss]trong|[Aa]verage|[Ww]eak|-?\d+)\]?/g, '$1<$2')
 			.replace(/([MARIP])<[Ss]trong/g, '$1<s]')
 			.replace(/([MARIP])<[Aa]verage/g, '$1<v]')
 			.replace(/([MARIP])<[Ww]eak/g, '$1<w]')
-			.replace(/([MARIP])<(\d)/g, '$1<$2]')
-			.replace(/M<([svw\d])\]/g, 'm<$1]')
-			.replace(/A<([svw\d])\]/g, 'a<$1]')
-			.replace(/R<([svw\d])\]/g, 'r<$1]')
-			.replace(/I<([svw\d])\]/g, 'i<$1]')
-			.replace(/P<([svw\d])\]/g, 'p<$1]')
-			.replace(/([marip])<([svw\d]\])/g, '<span class="potency">$1&lt;$2</span>')
+			.replace(/([MARIP])<(-?\d+)/g, '$1<$2]')
+			.replace(/M<([svw]|-?\d+)\]/g, 'm<$1]')
+			.replace(/A<([svw]|-?\d+)\]/g, 'a<$1]')
+			.replace(/R<([svw]|-?\d+)\]/g, 'r<$1]')
+			.replace(/I<([svw]|-?\d+)\]/g, 'i<$1]')
+			.replace(/P<([svw]|-?\d+)\]/g, 'p<$1]')
+			.replace(/([marip])<(([svw]|-?\d+)\])/g, '<span class="potency">$1&lt;$2</span>')
 			.replace(/(\*\*)?((≤|\\?<\\?=)\s*11|11 or (less|lower))(\*\*)?:?/g, `![11 or less](${rollT1Icon})`)
 			.replace(/(\*\*)?12\s*[-–]\s*16(\*\*)?:?/g, `![12 to 16](${rollT2Icon})`)
 			.replace(/(\*\*)?((≥|>=)\s*17|17(\+| or (more|greater)))(\*\*)?:?/g, `![17 or greater](${rollT3Icon})`)
@@ -136,11 +174,7 @@ export class SheetFormatter {
 	};
 
 	static pluralize = (text: string, n: number): string => {
-		let result = text;
-		if (n > 1 && text.slice(-1).toLowerCase() !== 's') {
-			result += 's';
-		}
-		return result;
+		return Format.pluralize(text, n);
 	};
 
 	static joinCommasOr = (options: string[] | undefined): string => {
@@ -189,7 +223,8 @@ export class SheetFormatter {
 		const reference: { feature: Feature, source: string }[] = [];
 		const extraRefItems: { title: string, content: string, wide: boolean, section: string }[] = [];
 
-		sourcedFeatures.sort((a, b) => this.sortFeatures(a.feature, b.feature));
+		const siblings = sourcedFeatures.map(f => f.feature);
+		sourcedFeatures.sort((a, b) => this.sortFeatures(a.feature, b.feature, siblings));
 		let size = 0;
 		let longest = 0;
 		sourcedFeatures.forEach(sf => {
@@ -236,7 +271,7 @@ export class SheetFormatter {
 					}
 					fSize += 1;
 				}
-				// double-count the longest feature to acocunt for worst-case column balancing
+				// double-count the longest feature to account for worst-case column balancing
 				if (size + fSize + (longest * (columns - 1)) <= availableSpace) {
 					display = true;
 				}
@@ -414,18 +449,31 @@ export class SheetFormatter {
 	};
 
 	static abilitySection = (section: (AbilitySectionText | AbilitySectionField | AbilitySectionRoll | AbilitySectionPackage), creature: Hero | Monster | undefined): string => {
+		const hero = CreatureLogic.isHero(creature) ? creature : undefined;
+
 		let text = '';
 		switch (section.type) {
 			case 'text':
-				text = section.text.replace(/^\s+/, '');
+				text = AbilityLogic.getTextEffect(section.text, hero).replace(/^\s+/, '');
 				break;
-			case 'field':
+			case 'field': {
+				const effect = AbilityLogic.getTextEffect(section.effect, hero);
 				if (section.value !== 0) {
-					text = `\n#### ${section.name} ${section.value}${section.repeatable ? '+' : ''}:\n${section.effect}`;
+					if (section.name === 'Spend') {
+						const spendType = hero && HeroLogic.getHeroicResources(hero)[0]?.name;
+						let spendPost = '';
+						if (spendType) {
+							spendPost = ' ' + spendType;
+						}
+						text = `\n**${section.name} ${section.value}${section.repeatable ? '+' : ''}${spendPost}:** ${effect}`;
+					} else {
+						text = `\n#### ${section.name} ${section.value}${section.repeatable ? '+' : ''}:\n${effect}`;
+					}
 				} else {
-					text = `\n#### ${section.name}:\n${section.effect}`;
+					text = `\n#### ${section.name}:\n${effect}`;
 				}
 				break;
+			}
 			case 'package':
 				if (CreatureLogic.isHero(creature)) {
 					text = HeroLogic.getFeatures(creature)
@@ -433,7 +481,7 @@ export class SheetFormatter {
 						.filter(f => f.type === FeatureType.PackageContent)
 						.filter(f => f.data.tag === section.tag)
 						.map(f => (
-							`\n#### ${f.name}:\n${f.description}`
+							`\n#### ${f.name}:\n${AbilityLogic.getTextEffect(f.description, hero)}`
 						)).join('\n');
 				} else if (creature !== undefined) {
 					console.warn('Ability package in NON-HERO!', section, creature);
@@ -566,8 +614,13 @@ export class SheetFormatter {
 			size += bottomMargin + 0.3;
 		} else if (f.type === FeatureType.HeroicResource) {
 			size = headerSize + (2 * this.countLines(f.data.details, lineWidth));
+		} else if (f.type === FeatureType.HeroicResourceThreshold) {
+			const benefitText = this.getThresholdBenefitText(f.data.feature).join('\n');
+			size = headerSize + this.countLines(benefitText, lineWidth, 0, 0.88);
+			size += bottomMargin;
 		} else if ([ FeatureType.Choice,
 			FeatureType.ItemChoice,
+			FeatureType.SkillCancelChoice,
 			FeatureType.SkillChoice,
 			FeatureType.LanguageChoice,
 			FeatureType.Perk,
@@ -579,7 +632,6 @@ export class SheetFormatter {
 			}
 		}
 		size = +size.toFixed(1);
-		// console.log('###### Feature', f.name, f.id, size);
 		return size;
 	};
 
@@ -627,6 +679,29 @@ export class SheetFormatter {
 		return size;
 	};
 
+	static calculateComplicationSize = (complication: ComplicationSheet, lineWidth: number): number => {
+		const sectionHeader = 1.5;
+		let size = 2.5; // Card header
+		size += 1.5; // Name
+
+		// The card only shows the description when one of the two sections is empty
+		if (!(complication.benefits.length && complication.drawbacks.length)) {
+			size += sectionHeader + this.countLines(complication.description, lineWidth);
+		}
+
+		if (complication.benefits.length) {
+			size += sectionHeader;
+			size += complication.benefits.reduce((s, f) => s + this.calculateFeatureSize(f, null, lineWidth, false), 0);
+		}
+
+		if (complication.drawbacks.length) {
+			size += sectionHeader;
+			size += complication.drawbacks.reduce((s, f) => s + this.calculateFeatureSize(f, null, lineWidth, false), 0);
+		}
+
+		return +size.toFixed(1);
+	};
+
 	static calculateTitlesSize = (titles: Title[] | undefined, lineWidth: number): number => {
 		let size = 2.5; // Card header
 		titles?.forEach(title => {
@@ -643,6 +718,7 @@ export class SheetFormatter {
 
 	static calculateFollowerSize = (follower: FollowerSheet, lineWidth: number): number => {
 		let size = 0;
+		// console.log(`=== Follower Size: ${follower?.name}`);
 		if (follower.classification === 'Follower') {
 			size = 6; // name, characteristics
 			size += this.countLines(`Skills: ${follower.skills?.join(', ')}`, lineWidth);
@@ -650,44 +726,78 @@ export class SheetFormatter {
 			size += 0.5;
 		} else {
 			size = 21.5; // name, stats, characteristics, stamina
+			// console.log(`---- header: ${size}`);
 			follower.abilities?.forEach(ability => {
 				size += this.calculateAbilityComponentSize(ability, lineWidth) + 1;
+				// console.log(`---- Ability ${ability.name}: ${size}`);
 			});
 			follower.features?.forEach(f => {
 				size += this.calculateFeatureSize(f, null, lineWidth, false) + 1;
+				// console.log(`---- Feature ${f.name}: ${size}`);
 			});
-			follower.advancement?.forEach(advancement => {
-				size += 1.5;
-				if (advancement.ability) {
-					size += this.calculateAbilityComponentSize(advancement.ability, lineWidth);
-				}
-				if (advancement.features?.length) {
-					advancement.features.forEach(f => {
-						size += this.calculateFeatureSize(f, null, lineWidth);
-					});
-				}
-			});
+			// follower.advancement?.forEach(advancement => {
+			// 	size += 1.5;
+			// 	if (advancement.ability) {
+			// 		size += this.calculateAbilityComponentSize(advancement.ability, lineWidth);
+			// 	}
+			// 	if (advancement.features?.length) {
+			// 		advancement.features.forEach(f => {
+			// 			size += this.calculateFeatureSize(f, null, lineWidth);
+			// 		});
+			// 	}
+			//	console.log(`---- Advancement Lvl ${advancement.level}: ${size}`);
+			// });
 		}
+		size -= 1; // no final divider
+		// console.log(`=== Total: ${size}`);
+		// console.log('===================');
 		return size;
 	};
 
 	static calculateMonsterSize = (monster: MonsterSheet, lineWidth: number, columns: number = 1): number => {
 		let size = 0;
+		const denseLineWidth = lineWidth * 1.4;
+		// console.log(`=== Monster Size: ${monster?.name}`);
 		size = 12.5; // name, stats, characteristics
 		let largestBlock = 0;
+		// console.log(`---- header: ${size}`);
 		monster.abilities?.forEach(ability => {
-			const abilitySize = this.calculateAbilityComponentSize(ability, lineWidth - 5);
+			const abilitySize = this.calculateAbilityComponentSize(ability, denseLineWidth);
 			size += abilitySize;
+			size += 1.5;
 			largestBlock = Math.max(largestBlock, abilitySize);
+			// console.log(`>> ---- Ability ${ability.name}: ${size}`);
 		});
 		monster.features?.forEach(f => {
-			const featureSize = this.calculateFeatureSize(f, null, lineWidth, false);
+			let featureSize = this.calculateFeatureSize(f, null, denseLineWidth, false);
+			if (featureSize > 15) {
+				featureSize = featureSize * 1.1;
+			}
 			size += featureSize;
+			size += 1.5;
 			largestBlock = Math.max(largestBlock, featureSize);
+			// console.log(`>> ---- Feature ${f.name}: ${size}`);
 		});
+		size -= 1.5; // no final divider
 		// ability/feature dividers
-		size += 1.6 * Math.max(0, ((monster.abilities?.length || 0) + (monster.features?.length || 0) - 1));
-		size = Math.ceil(size / columns);
+		// size += 1.6 * Math.max(0, ((monster.abilities?.length || 0) + (monster.features?.length || 0) - 1));
+
+		monster.advancement?.forEach(advancement => {
+			size += 2; // header
+			if (advancement.ability) {
+				size += this.calculateAbilityComponentSize(advancement.ability, denseLineWidth);
+			}
+			if (advancement.features?.length) {
+				advancement.features.forEach(f => {
+					size += this.calculateFeatureSize(f, null, denseLineWidth);
+				});
+			}
+			// console.log(`---- Advancement Lvl ${advancement.level}: ${size}`);
+		});
+		size += 1;// bottom padding
+		size = columns > 1 ? Math.ceil(size / columns) : size;
+		// console.log(`=== Total: ${size}`);
+		// console.log('===================');
 		return size;
 	};
 
@@ -727,26 +837,35 @@ export class SheetFormatter {
 
 	// COMPACT Ability display - e.g. for Retainers & Monsters
 	static calculateAbilityComponentSize = (ability: AbilitySheet, lineWidth: number): number => {
-		let size = 1.5; // name, usage
+		let size = 1; // name, usage
 		size += this.countLines(`${ability.keywords} ${ability.actionType}`, lineWidth);
 		size += this.countLines(`${ability.distance} ${ability.target}`, lineWidth);
 
 		const rollLineLen = Math.ceil(lineWidth - 10); // account for icons
-		size += this.countLines(ability.rollT1Effect, rollLineLen);
-		size += this.countLines(ability.rollT2Effect, rollLineLen);
-		size += this.countLines(ability.rollT3Effect, rollLineLen);
+		// console.log(`>> -- Ability header: ${size}`);
 
 		if (ability.trigger) {
-			size += this.countLines(ability.trigger, lineWidth);
+			size += 0.4 + this.countLines(ability.trigger, lineWidth);
 		}
 
-		if (ability.effect) {
-			if (ability.hasPowerRoll) {
-				size += 0.5; // extra padding when effect follows power roll
+		// console.log(`>> -- Trigger: ${size}`);
+		ability.sections.forEach((s, n) => {
+			if (typeof s === 'string') {
+				const effectSize = this.countLines(s, lineWidth, 1, 0.8);
+				// size += (ability.isNotTrueAbility ? 0 : 1.5) + effectSize;
+				size += effectSize;
+			} else {
+				size += 0.3 + this.countLines(s.rollT1Effect, rollLineLen);
+				size += 0.3 + this.countLines(s.rollT2Effect, rollLineLen);
+				size += 0.3 + this.countLines(s.rollT3Effect, rollLineLen);
 			}
-			const effectSize = this.countLines(ability.effect, lineWidth);
-			size += effectSize;
-		}
+
+			if (n > 0) {
+				size += 0.4;
+			}
+			// console.log(`>> -- Section [${n + 1}]: ${size}`);
+		});
+		// console.log(`>> -- Ability total: ${size}`);
 		return size;
 	};
 
@@ -785,11 +904,24 @@ export class SheetFormatter {
 		return size;
 	};
 
+	static calculateRollModifiersCardSize = (rollModifiers: FeatureRollModifier[], lineWidth: number): number => {
+		let size = 2.7; // card header
+		rollModifiers.forEach(f => {
+			// scope and modifier share a line unless the scope wraps
+			size += this.countLines(FeatureLogic.getRollModifierScope(f.data), lineWidth);
+			if (f.data.condition) {
+				size += this.countLines(f.data.condition, lineWidth);
+			}
+			size += 0.5; // divider
+		});
+		return size;
+	};
+
 	static calculateNotesCardSize = (notes: string, lineWidth: number): number => {
 		let size = 2.7;
 		size += Math.max(20, this.countLines(notes, lineWidth));
 		const numHeadings = (notes.match(/###/g) || []).length;
-		size += numHeadings * 0.8; // extra spage per heading
+		size += numHeadings * 0.8; // extra space per heading
 		const numParagraphs = (notes.match(/\n\n/g) || []).length;
 		size += numParagraphs * 0.3; // extra space per paragraph
 		return size;
@@ -797,27 +929,42 @@ export class SheetFormatter {
 
 	static calculateAbilitySize = (ability: AbilitySheet | undefined, lineWidth: number): number => {
 		let size = 0;
-		const rollLineLen = Math.ceil(0.8 * lineWidth) - 10;
+		// console.log(`=== Ability Size: ${ability?.name}`);
+		const rollLineLen = Math.ceil(lineWidth) - 10;
 		if (ability) {
-			size += 4; // title
-			size += this.countLines(ability.description, lineWidth);
-			size += ability.isNotTrueAbility ? 1 : 2.5; // keywords, distance, etc
-			size += ability.hasPowerRoll ? 2 : 0;
-			if (ability.hasPowerRoll) {
-				size += 0.3 + this.countLines(ability.rollT1Effect, rollLineLen);
-				size += 0.3 + this.countLines(ability.rollT2Effect, rollLineLen);
-				size += 0.3 + this.countLines(ability.rollT3Effect, rollLineLen);
-			}
+			size += ability.cost ? 4 : 3.8; // title
+			// console.log(`-- Title: ${size}`);
+			size += this.countLines(ability.description, lineWidth * 1.1);
+			// console.log(`-- Description: ${size}`);
+			size += ability.isNotTrueAbility ? 1 : 2.2; // keywords, distance, etc
+			size += ability.qualifiers?.length ? 0.8 : 0;
+			// console.log(`-- Keywords/Distance/etc.: ${size}`);
 			if (ability.trigger) {
 				size += 1 + this.countLines(ability.trigger, lineWidth);
 			}
-			if (ability.effect) {
-				if (ability.hasPowerRoll) {
-					size += 0.5; // extra padding when effect follows power roll
+			// console.log(`-- Trigger: ${size}`);
+
+			ability.sections.forEach((s, n) => {
+				if (typeof s === 'string') {
+					const effectSize = this.countLines(s, lineWidth, 1);
+					// size += (ability.isNotTrueAbility ? 0 : 1.5) + effectSize;
+					size += effectSize;
+				} else {
+					size += 1.5; // 'Power Roll + ...'
+					size += 0.15 + this.countLines(s.rollT1Effect, rollLineLen);
+					size += 0.15 + this.countLines(s.rollT2Effect, rollLineLen);
+					size += 0.15 + this.countLines(s.rollT3Effect, rollLineLen);
 				}
-				const effectSize = this.countLines(ability.effect, lineWidth, 1);
-				size += (ability.isNotTrueAbility ? 0 : 1.5) + effectSize;
-			}
+
+				if (n > 0) {
+					size += 0.4;
+				}
+				// console.log(`-- Section [${n + 1}]: ${size}`);
+			});
+
+			size += 0.5; // bottom padding
+			// console.log(`-- Full: ${size}`);
+			// console.log('============================');
 		}
 		return size;
 	};
@@ -827,7 +974,12 @@ export class SheetFormatter {
 		const result = text?.trim().replaceAll(/(!\[.+\])\(data:image.+\)/g, '$1(<img>)').split('\n').reduce((n, l) => {
 			let len = emptyLineSize;
 			if (l.length) {
-				len = Math.ceil(l.length / lineWidth) * lineFactor;
+				let calcLength = l.length;
+				// Add 10% to long text blocks to account for wrapping inconsistencies
+				if (l.length > (3 * lineWidth)) {
+					calcLength *= 1.1;
+				}
+				len = Math.ceil(calcLength / lineWidth) * lineFactor;
 				len += 0.2;// additional spacing
 			}
 			if (l.startsWith('|:---')) { // table divider
@@ -847,6 +999,8 @@ export class SheetFormatter {
 				len += 0.5;
 			} else if (l.startsWith('* ')) { // list item, will be indented
 				len = Math.ceil(l.length / (lineWidth - 3));
+			} else if (l.startsWith('>')) { // blockquote - don't include extra spacing from line 860
+				len -= 0.2;
 			}
 
 			return n + len;
@@ -877,12 +1031,26 @@ export class SheetFormatter {
 		FeatureType.ConditionImmunity
 	];
 
-	static sortFeatures = (a: Feature, b: Feature): number => {
-		const aSort = this.featureTypeOrder.includes(a.type);
-		const bSort = this.featureTypeOrder.includes(b.type);
+	static sortFeatures = (a: Feature, b: Feature, siblings: Feature[] = []): number => {
+		const aThreshold = this.getThresholdSortOrder(a, siblings);
+		const bThreshold = this.getThresholdSortOrder(b, siblings);
+		const aType = aThreshold ? FeatureType.HeroicResourceThreshold : a.type;
+		const bType = bThreshold ? FeatureType.HeroicResourceThreshold : b.type;
+		const aSort = this.featureTypeOrder.includes(aType);
+		const bSort = this.featureTypeOrder.includes(bType);
+
+		if (aThreshold && bThreshold) {
+			const resourceOrder = aThreshold.resource.localeCompare(bThreshold.resource);
+			if (resourceOrder !== 0) {
+				return resourceOrder;
+			}
+			if (aThreshold.value !== bThreshold.value) {
+				return aThreshold.value - bThreshold.value;
+			}
+		}
 
 		if (aSort && bSort) {
-			const typeOrder = this.featureTypeOrder.indexOf(a.type) - this.featureTypeOrder.indexOf(b.type);
+			const typeOrder = this.featureTypeOrder.indexOf(aType) - this.featureTypeOrder.indexOf(bType);
 			if (typeOrder === 0) {
 				return this.calculateFeatureSize(a, null, 50, false) - this.calculateFeatureSize(b, null, 50, false);
 			}
@@ -892,12 +1060,36 @@ export class SheetFormatter {
 		} else if (bSort) {
 			return 1;
 		} else {
-			const typeOrder = a.type.toString().localeCompare(b.type.toString());
+			const typeOrder = aType.toString().localeCompare(bType.toString());
 			if (typeOrder === 0) {
 				return this.calculateFeatureSize(a, null, 50, false) - this.calculateFeatureSize(b, null, 50, false);
 			}
 			return typeOrder;
 		}
+	};
+
+	// Keep a threshold group's introduction first, its bonuses in ascending order, and other children last.
+	static getThresholdSortOrder = (feature: Feature, siblings: Feature[] = []): { resource: string, value: number } | null => {
+		if (feature.type === FeatureType.HeroicResourceThreshold) {
+			return feature.data;
+		}
+		if (feature.type === FeatureType.Multiple) {
+			const thresholds = feature.data.features.filter(f => f.type === FeatureType.HeroicResourceThreshold);
+			const first = thresholds[0];
+			if (first && thresholds.every(f => f.data.resource === first.data.resource)) {
+				return { resource: first.data.resource, value: -Infinity };
+			}
+		}
+		// Flattening puts children alongside their parent; use that parent to find their resource group.
+		for (const sibling of siblings) {
+			if (sibling.type === FeatureType.Multiple && sibling.data.features.some(f => f.id === feature.id)) {
+				const parentOrder = this.getThresholdSortOrder(sibling);
+				if (parentOrder) {
+					return { resource: parentOrder.resource, value: Infinity };
+				}
+			}
+		}
+		return null;
 	};
 
 	static keywordOrder: string[] = [
