@@ -24,6 +24,12 @@ export interface Backup {
 	hiddenSourcebookIDs: string[];
 }
 
+export interface BackupTreeNode {
+	key: string;
+	title: string;
+	children?: BackupTreeNode[];
+}
+
 export interface BackupSummary {
 	heroes: number;
 	homebrewSourcebooks: number;
@@ -138,6 +144,115 @@ export class BackupLogic {
 			homebrewSourcebooks: backup.homebrewSourcebooks.length,
 			sessionItems: BackupLogic.countSessionItems(backup.session)
 		};
+	};
+
+	/**
+	 * A nested outline of everything in a backup, for showing people what they're exporting or importing.
+	 */
+	static getContentsTree = (backup: Backup): BackupTreeNode[] => {
+		const named = (name: string | undefined, fallback: string) => (name && name.trim()) ? name.trim() : fallback;
+		const counted = (label: string, n: number) => `${label} (${n})`;
+		const list = <T extends { id: string, name?: string }>(keyPrefix: string, items: T[], fallback: string, describe?: (item: T) => string): BackupTreeNode[] => {
+			return items.map((item, n) => ({
+				key: `${keyPrefix}/${item.id || n}`,
+				title: describe ? describe(item) : named(item.name, fallback)
+			}));
+		};
+
+		// Heroes, grouped by folder (party)
+		const folders = Array.from(new Set(backup.heroes.map(h => h.folder || '')))
+			.sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
+		const describeHero = (hero: Hero) => {
+			const name = named(hero.name, 'Unnamed Hero');
+			return hero.class ? `${name} - ${hero.class.name} (level ${hero.class.level})` : name;
+		};
+		const heroNodes: BackupTreeNode[] = folders.map(folder => {
+			const heroes = backup.heroes.filter(h => (h.folder || '') === folder);
+			return {
+				key: `heroes/${folder || '(none)'}`,
+				title: counted(folder || 'Not in a folder', heroes.length),
+				children: list(`heroes/${folder || '(none)'}`, heroes, 'Unnamed Hero', describeHero)
+			};
+		});
+
+		// Homebrew sourcebooks, broken down by the kinds of content they hold
+		const sourcebookParts: { key: keyof Sourcebook, label: string }[] = [
+			{ key: 'ancestries', label: 'Ancestries' },
+			{ key: 'cultures', label: 'Cultures' },
+			{ key: 'careers', label: 'Careers' },
+			{ key: 'classes', label: 'Classes' },
+			{ key: 'subclasses', label: 'Subclasses' },
+			{ key: 'complications', label: 'Complications' },
+			{ key: 'domains', label: 'Domains' },
+			{ key: 'kits', label: 'Kits' },
+			{ key: 'perks', label: 'Perks' },
+			{ key: 'titles', label: 'Titles' },
+			{ key: 'items', label: 'Items' },
+			{ key: 'imbuements', label: 'Imbuements' },
+			{ key: 'projects', label: 'Projects' },
+			{ key: 'monsterGroups', label: 'Monster Groups' },
+			{ key: 'terrain', label: 'Terrain' },
+			{ key: 'encounters', label: 'Encounters' },
+			{ key: 'montages', label: 'Montages' },
+			{ key: 'negotiations', label: 'Negotiations' },
+			{ key: 'adventures', label: 'Adventures' },
+			{ key: 'tacticalMaps', label: 'Tactical Maps' },
+			{ key: 'skills', label: 'Skills' },
+			{ key: 'languages', label: 'Languages' }
+		];
+		const sourcebookNodes: BackupTreeNode[] = backup.homebrewSourcebooks.map((sb, n) => {
+			const sbKey = `sourcebooks/${sb.id || n}`;
+			const children = sourcebookParts
+				.map(part => {
+					const items = (Array.isArray(sb[part.key]) ? sb[part.key] : []) as { id: string, name?: string }[];
+					return items.length === 0
+						? null
+						: {
+							key: `${sbKey}/${part.key}`,
+							title: counted(part.label, items.length),
+							children: list(`${sbKey}/${part.key}`, items, 'Unnamed')
+						};
+				})
+				.filter(node => node !== null);
+			return {
+				key: sbKey,
+				title: named(sb.name, 'Unnamed Sourcebook'),
+				children: children.length > 0 ? children : [ { key: `${sbKey}/empty`, title: 'Empty' } ]
+			};
+		});
+
+		// The director's session
+		const session = backup.session;
+		const sessionParts: BackupTreeNode[] = [
+			{
+				key: 'session/encounters',
+				title: counted('Encounters', session.encounters?.length ?? 0),
+				children: list('session/encounters', session.encounters ?? [], 'Unnamed Encounter', e => {
+					const details = [ e.round ? `round ${e.round}` : null, e.malice ? `malice ${e.malice}` : null ].filter(d => d !== null);
+					return `${named(e.name, 'Unnamed Encounter')}${details.length > 0 ? ` (${details.join(', ')})` : ''}`;
+				})
+			},
+			{ key: 'session/montages', title: counted('Montages', session.montages?.length ?? 0), children: list('session/montages', session.montages ?? [], 'Unnamed Montage') },
+			{ key: 'session/negotiations', title: counted('Negotiations', session.negotiations?.length ?? 0), children: list('session/negotiations', session.negotiations ?? [], 'Unnamed Negotiation') },
+			{ key: 'session/maps', title: counted('Tactical Maps', session.tacticalMaps?.length ?? 0), children: list('session/maps', session.tacticalMaps ?? [], 'Unnamed Map') },
+			{
+				key: 'session/counters',
+				title: counted('Counters', session.counters?.length ?? 0),
+				children: list('session/counters', session.counters ?? [], 'Unnamed Counter', c => `${named(c.name, 'Unnamed Counter')}: ${c.value}`)
+			}
+		].filter(node => node.children.length > 0);
+
+		const settingsNodes: BackupTreeNode[] = [
+			{ key: 'settings/party', title: `Party: ${backup.options.party || 'none chosen'}` },
+			{ key: 'settings/hidden', title: `Hidden sourcebooks: ${backup.hiddenSourcebookIDs.length}` }
+		];
+
+		return [
+			{ key: 'heroes', title: counted('Heroes', backup.heroes.length), children: heroNodes },
+			{ key: 'sourcebooks', title: counted('Homebrew Sourcebooks', backup.homebrewSourcebooks.length), children: sourcebookNodes },
+			{ key: 'session', title: counted('Session', BackupLogic.countSessionItems(session)), children: sessionParts },
+			{ key: 'settings', title: 'Settings', children: settingsNodes }
+		];
 	};
 
 	static countSessionItems = (session: Session) => {

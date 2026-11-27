@@ -1,6 +1,7 @@
 import { Alert, Button, Flex, Space, Upload } from 'antd';
 import { Backup, BackupLogic } from '@/logic/backup-logic';
 import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { BackupContentsTree } from '@/components/panels/backup/backup-contents-tree';
 import { ConnectionSettings } from '@/models/connection-settings';
 import { DangerButton } from '@/components/controls/danger-button/danger-button';
 import { DataService } from '@/services/data-service';
@@ -19,6 +20,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  */
 export const BackupRestorePanel = (props: Props) => {
 	const [ exporting, setExporting ] = useState<boolean>(false);
+	const [ exportedBackup, setExportedBackup ] = useState<Backup | null>(null);
 	const [ pendingBackup, setPendingBackup ] = useState<Backup | null>(null);
 	const [ restoring, setRestoring ] = useState<boolean>(false);
 	const [ error, setError ] = useState<string | null>(null);
@@ -28,8 +30,13 @@ export const BackupRestorePanel = (props: Props) => {
 	const exportBackup = () => {
 		setExporting(true);
 		setError(null);
+		setExportedBackup(null);
+		setPendingBackup(null);
 		BackupLogic.createBackup(props.dataService)
-			.then(backup => Utils.exportData(BackupLogic.getBackupFileName(), backup, 'backup'))
+			.then(backup => {
+				Utils.exportData(BackupLogic.getBackupFileName(), backup, 'backup');
+				setExportedBackup(backup);
+			})
 			.catch(err => {
 				console.error(err);
 				setError(`The backup couldn't be created: ${Utils.getErrorMessage(err)}`);
@@ -68,6 +75,7 @@ export const BackupRestorePanel = (props: Props) => {
 						<div className='ds-text'>
 							Contains {plural(summary.heroes, 'hero', 'heroes')}, {plural(summary.homebrewSourcebooks, 'homebrew sourcebook', 'homebrew sourcebooks')}, and {plural(summary.sessionItems, 'session item', 'session items')}, plus your settings.
 						</div>
+						<BackupContentsTree backup={pendingBackup} />
 						<div className='ds-text'>
 							Restoring <b>replaces everything you currently have</b> with the contents of this backup. Heroes and sourcebooks that aren't in the backup will be deleted.
 						</div>
@@ -82,6 +90,27 @@ export const BackupRestorePanel = (props: Props) => {
 							/>
 							<Button block={true} disabled={restoring} onClick={() => setPendingBackup(null)}>Cancel</Button>
 						</Flex>
+					</Space>
+				}
+			/>
+		);
+	};
+
+	const getExportedBackup = () => {
+		if (!exportedBackup) {
+			return null;
+		}
+
+		return (
+			<Alert
+				type='success'
+				showIcon={true}
+				title={`Saved ${BackupLogic.getBackupFileName(new Date(exportedBackup.created))}.ds-backup`}
+				closable={{ onClose: () => setExportedBackup(null) }}
+				description={
+					<Space orientation='vertical' style={{ width: '100%' }}>
+						<div className='ds-text'>This backup contains:</div>
+						<BackupContentsTree backup={exportedBackup} />
 					</Space>
 				}
 			/>
@@ -104,6 +133,7 @@ export const BackupRestorePanel = (props: Props) => {
 				disabled={restoring}
 				beforeUpload={file => {
 					setError(null);
+					setExportedBackup(null);
 					setPendingBackup(null);
 					file
 						.text()
@@ -116,6 +146,7 @@ export const BackupRestorePanel = (props: Props) => {
 					Import Everything...
 				</Button>
 			</Upload>
+			{getExportedBackup()}
 			{getPendingBackup()}
 			{
 				error ?

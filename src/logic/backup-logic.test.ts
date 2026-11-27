@@ -1,4 +1,4 @@
-import { BACKUP_FORMAT, BACKUP_VERSION, Backup, BackupLogic } from '@/logic/backup-logic';
+import { BACKUP_FORMAT, BACKUP_VERSION, Backup, BackupLogic, BackupTreeNode } from '@/logic/backup-logic';
 import { describe, expect, test, vi } from 'vitest';
 import { DataService } from '@/services/data-service';
 import { FactoryLogic } from '@/logic/factory-logic';
@@ -219,5 +219,79 @@ describe('parseSession', () => {
 describe('getBackupFileName', () => {
 	test('includes the date', () => {
 		expect(BackupLogic.getBackupFileName(new Date(2026, 10, 7))).toBe('Forge Steel Backup 2026-11-07');
+	});
+});
+
+describe('getContentsTree', () => {
+	// Flattens a tree into indented lines, which makes the expected shape easy to read
+	const outline = (nodes: BackupTreeNode[], depth = 0): string[] => nodes.flatMap(n => [ `${'  '.repeat(depth)}${n.title}`, ...outline(n.children ?? [], depth + 1) ]);
+
+	test('outlines heroes by folder, sourcebook contents, the session, and settings', () => {
+		const heroWithClass = (id: string, name: string, folder: string, className: string, level: number) => ({ id: id, name: name, folder: folder, class: { name: className, level: level } }) as unknown as Hero;
+
+		const sb = FactoryLogic.createSourcebook();
+		sb.id = 'sb1';
+		sb.name = 'My Homebrew';
+		sb.ancestries = [ { id: 'a1', name: 'Frogfolk' } ] as Sourcebook['ancestries'];
+		sb.monsterGroups = [ { id: 'm1', name: 'Bandits' }, { id: 'm2', name: '' } ] as Sourcebook['monsterGroups'];
+
+		const empty = FactoryLogic.createSourcebook();
+		empty.id = 'sb2';
+		empty.name = 'Empty Book';
+
+		const session = FactoryLogic.createSession();
+		const encounter = FactoryLogic.createEncounter();
+		encounter.name = 'Goblin Ambush';
+		encounter.round = 2;
+		encounter.malice = 7;
+		session.encounters.push(encounter);
+		session.counters.push({ id: 'c1', name: 'Reinforcements', description: '', value: 3 });
+
+		const backup = createBackup({
+			heroes: [
+				heroWithClass('h1', 'Ashley', 'Party', 'Null', 1),
+				heroWithClass('h2', 'Bellamy', 'Party', 'Shadow', 3),
+				{ id: 'h3', name: '', folder: '', class: null } as unknown as Hero
+			],
+			homebrewSourcebooks: [ sb, empty ],
+			session: session,
+			options: { ...FactoryLogic.createOptions(), party: 'Party' },
+			hiddenSourcebookIDs: [ 'x', 'y' ]
+		});
+
+		expect(outline(BackupLogic.getContentsTree(backup))).toEqual([
+			'Heroes (3)',
+			'  Party (2)',
+			'    Ashley - Null (level 1)',
+			'    Bellamy - Shadow (level 3)',
+			'  Not in a folder (1)',
+			'    Unnamed Hero',
+			'Homebrew Sourcebooks (2)',
+			'  My Homebrew',
+			'    Ancestries (1)',
+			'      Frogfolk',
+			'    Monster Groups (2)',
+			'      Bandits',
+			'      Unnamed',
+			'  Empty Book',
+			'    Empty',
+			'Session (2)',
+			'  Encounters (1)',
+			'    Goblin Ambush (round 2, malice 7)',
+			'  Counters (1)',
+			'    Reinforcements: 3',
+			'Settings',
+			'  Party: Party',
+			'  Hidden sourcebooks: 2'
+		]);
+	});
+
+	test('gives every node a unique key', () => {
+		const keys = (nodes: BackupTreeNode[]): string[] => nodes.flatMap(n => [ n.key, ...keys(n.children ?? []) ]);
+		const backup = createBackup({ heroes: [ hero('h1'), hero('h2') ] });
+
+		const all = keys(BackupLogic.getContentsTree(backup));
+
+		expect(new Set(all).size).toBe(all.length);
 	});
 });
