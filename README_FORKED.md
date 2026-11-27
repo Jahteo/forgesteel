@@ -13,7 +13,7 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 ### Backup / restore everything, and session export / import
 
-**PR:** *(pending)* — `claude/data-export-import`
+**PR:** [#16](https://github.com/jahteo/forgesteel/pull/16) — `claude/data-export-import`
 
 Adds a **Backup and Restore** section to Settings that saves everything (heroes, homebrew sourcebooks, the director session, settings and hidden sourcebooks) to one `.ds-backup` file, and restores from one after showing what's in it. Also adds a **Save / Load** menu to the session page to export the current session (every running encounter, montage, negotiation, map and counter, with their live state) to a `.ds-session` file and load one back. Previously there was no way to back up a session at all, and the Backup page only saved heroes and sourcebooks one file at a time.
 
