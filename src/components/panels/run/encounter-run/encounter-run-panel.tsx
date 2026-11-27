@@ -66,7 +66,8 @@ export const EncounterRunPanel = (props: Props) => {
 	const options = useOptions();
 	const [ encounter, setEncounter ] = useState<Encounter>(Utils.copy(props.encounter));
 	const [ tab, setTab ] = useState<string>('combatants');
-	const [ showSidebar, setShowSidebar ] = useState<boolean>(true);
+	// On phones the sidebar is a drawer, so start with it closed
+	const [ showSidebar, setShowSidebar ] = useState<boolean>(!isSmall);
 	const [ addingHeroes, setAddingHeroes ] = useState<boolean>(false);
 	const [ addingMonsters, setAddingMonsters ] = useState<boolean>(false);
 	const [ selectingGroup, setSelectingGroup ] = useState<boolean>(false);
@@ -882,6 +883,17 @@ export const EncounterRunPanel = (props: Props) => {
 		);
 	};
 
+	const getAddCombatantButtons = () => {
+		return (
+			<ButtonGroup
+				buttons={[
+					{ type: 'button', label: 'Add hero(es)', onClick: () => setAddingHeroes(true) },
+					{ type: 'button', label: 'Add a monster', onClick: () => setAddingMonsters(true) }
+				]}
+			/>
+		);
+	};
+
 	let className = 'encounter-run-panel';
 	if (isSmall) {
 		className += ' is-small';
@@ -891,14 +903,14 @@ export const EncounterRunPanel = (props: Props) => {
 		<>
 			<div className={className} id={encounter.id}>
 				<Flex align='flex-start' gap={20} style={{ height: '100%' }}>
-					<div style={{ flex: '1 1 0', height: '100%', padding: '0 5px', overflowY: 'auto' }}>
+					<div style={{ flex: '1 1 0', minWidth: 0, height: '100%', padding: '0 5px', overflowY: 'auto' }}>
 						<HeaderText
 							level={1}
 							extra={
 								<ButtonGroup
 									buttons={[
 										{ type: 'button', label: 'Minis', disabled: !props.showTools, onClick: () => props.showTools!('minis') },
-										{ type: 'button', label: showSidebar ? 'Hide Sidebar' : 'Show Sidebar', onClick: () => setShowSidebar(!showSidebar) }
+										{ type: 'button', label: isSmall ? 'Notes' : (showSidebar ? 'Hide Sidebar' : 'Show Sidebar'), onClick: () => setShowSidebar(!showSidebar) }
 									]}
 								/>
 							}
@@ -906,6 +918,13 @@ export const EncounterRunPanel = (props: Props) => {
 							{encounter.name || 'Unnamed Encounter'}
 						</HeaderText>
 						{getControlSection()}
+						{
+							isSmall && (tab === 'combatants') ?
+								<Flex justify='flex-end' style={{ marginTop: '10px' }}>
+									{getAddCombatantButtons()}
+								</Flex>
+								: null
+						}
 						<Tabs
 							items={[
 								{
@@ -922,19 +941,12 @@ export const EncounterRunPanel = (props: Props) => {
 							activeKey={tab}
 							onChange={setTab}
 							tabBarExtraContent={
-								tab === 'combatants' ?
-									<ButtonGroup
-										buttons={[
-											{ type: 'button', label: 'Add hero(es)', onClick: () => setAddingHeroes(true) },
-											{ type: 'button', label: 'Add a monster', onClick: () => setAddingMonsters(true) }
-										]}
-									/>
-									: null
+								!isSmall && (tab === 'combatants') ? getAddCombatantButtons() : null
 							}
 						/>
 					</div>
 					{
-						showSidebar ?
+						showSidebar && !isSmall ?
 							<div style={{ flex: '0 0 400px', height: '100%', overflowY: 'auto' }}>
 								{getSidebar()}
 							</div>
@@ -942,6 +954,15 @@ export const EncounterRunPanel = (props: Props) => {
 					}
 				</Flex>
 			</div>
+			{
+				isSmall ?
+					<Drawer open={showSidebar} onClose={() => setShowSidebar(false)} size={400} title={encounter.name || 'Unnamed Encounter'}>
+						<div style={{ padding: '0 15px 15px 15px' }}>
+							{getSidebar()}
+						</div>
+					</Drawer>
+					: null
+			}
 			<Drawer open={addingHeroes} onClose={() => setAddingHeroes(false)} closeIcon={null} size={500}>
 				<HeroSelectModal
 					sourcebooks={props.sourcebooks}

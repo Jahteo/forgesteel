@@ -5,6 +5,18 @@
 	height: 100%;
 
 	&.is-small {
+		padding: 0 10px;
+
+		// Round and Malice share the first row; the initiative button gets the full width below
+		.stats-row-content {
+			flex-wrap: wrap;
+
+			.initiative-button {
+				flex: 1 1 100%;
+				order: 1;
+			}
+		}
+
 		.encounter-groups {
 			.encounter-group {
 				flex-direction: column;

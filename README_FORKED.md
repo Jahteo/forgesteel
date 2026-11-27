@@ -11,6 +11,34 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 ## Changes
 
+### Phone-friendly layout (session, library, editors)
+
+**PR:** *(pending)* — `claude/mobile-responsive` (stacked on `claude/festive-maxwell-i3mo26`)
+
+Makes the app usable on a phone (tested at iPhone 13 size, 390px wide). Previously the encounter runner was pushed off-screen by its notes sidebar, the library never showed the selected item, homebrew editors were squashed beside their preview, and header buttons ran off the edge of the screen. All changes only apply below the app's existing 1000px `useIsSmall()` breakpoint; desktop is pixel-identical.
+
+**How to test:**
+1. Open the branch preview on a phone: https://jahteo.github.io/forgesteel/preview/claude-mobile-responsive/ (or `npx vite --host` and open your machine's LAN address on the phone)
+2. **Session:** start an encounter — the Round/Malice/Initiative controls wrap onto two rows, "Add hero(es) / Add a monster" sit above the tabs, and **Notes** opens the encounter notes in a drawer. The ✓/✕ toggle and `…` menu are reachable on every combatant row
+3. **Library:** open any item (e.g. Classes → Beastheart), then reload — the item shows instead of the list. Swipe the header toolbar sideways to reach the rest of the buttons
+4. **Homebrew editor:** edit a homebrew element — the editor uses the full width (preview hidden on phones) and the text toolbar wraps
+5. Tap into a text field — the page should not zoom in
+
+**Files changed:**
+- `src/style/mobile.scss` *(new)* — global phone rules: drawers/popovers capped to screen width, header toolbars scroll sideways, editor preview hidden, rich-text toolbar wraps, `100dvh` app height for iOS Safari, 16px inputs to stop iOS focus-zoom
+- `src/style/index.scss` — imports `mobile.scss`
+- `src/components/panels/run/encounter-run/encounter-run-panel.tsx` / `.scss` — notes sidebar becomes a drawer (closed by default) on phones; add-combatant buttons move above the tabs; control row wraps
+- `src/components/pages/session/director/session-director-page.scss` — session item selector no longer clips its left end when wider than the screen
+- `src/components/pages/library/library-list/library-list-page.tsx` — on phones, open on the selected item rather than the list when the URL names one
+
+**Screenshots:** *(iPhone 13 — session, library item, monster group editor)*
+
+| Before | After |
+|--------|-------|
+| ![Before](https://raw.githubusercontent.com/jahteo/forgesteel/claude/mobile-responsive/screenshots/mobile-before.png) | ![After](https://raw.githubusercontent.com/jahteo/forgesteel/claude/mobile-responsive/screenshots/mobile-after.png) |
+
+**Upstream PR notes:** Good upstream candidate — upstream has the same problems, and these changes build on its own `useIsSmall()` mechanism. Doesn't depend on any fork-only code. Not exhaustive: other screens (hero builder steps, tactical maps, Clocktower) weren't audited in depth.
+
 ### Sync with upstream (andyaiken/forgesteel `main` @ `3c6b4ab`)
 
 **PR:** [#14](https://github.com/jahteo/forgesteel/pull/14) — `claude/festive-maxwell-i3mo26`
