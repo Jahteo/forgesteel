@@ -114,7 +114,8 @@ export const LibraryListPage = (props: Props) => {
 	const [ previousCategory, setPreviousCategory ] = useState<SourcebookElementKind | undefined>(kind);
 	const [ previousSelectedID, setPreviousSelectedID ] = useState<string | null | undefined>(elementID);
 	const [ searchTerm, setSearchTerm ] = useState<string>('');
-	const [ showSidebar, setShowSidebar ] = useState<boolean>(true);
+	// On phones the list and the selected item can't both fit, so open on the item if there is one
+	const [ showSidebar, setShowSidebar ] = useState<boolean>(!(isSmall && elementID));
 	const [ view, setView ] = useState<string>('modern');
 	const [ showMonsters, setShowMonsters ] = useState<boolean>(false);
 	const [ showCulturesFromAncestries, setShowCulturesFromAncestries ] = useState<boolean>(false);

@@ -1,0 +1,91 @@
+// Small-screen (phone) fixes that apply across the app.
+// Matches the breakpoint used by the useIsSmall() hook.
+
+@media only screen and (max-width: 1000px) {
+	// On iOS Safari, 100% height can include the area behind the browser's toolbars, which
+	// hides the app footer; the dynamic viewport height is what's actually visible
+	@supports (height: 100dvh) {
+		html,
+		body {
+			height: 100dvh;
+		}
+	}
+
+	// iOS Safari zooms the page in when a text field smaller than 16px gets focus, and
+	// doesn't zoom back out
+	@media (pointer: coarse) {
+		input,
+		textarea,
+		select,
+		.ant-input,
+		.ant-input-number-input,
+		.ant-select-selection-search-input {
+			font-size: 16px !important;
+		}
+	}
+
+	// Drawers are often given a fixed size (e.g. 500px) that's wider than a phone
+	.ant-drawer-content-wrapper {
+		max-width: 100vw;
+	}
+
+	// Popovers often contain fixed-width content (e.g. 500px); keep them on screen and let
+	// their content scroll instead
+	.ant-popover {
+		max-width: calc(100vw - 16px);
+
+		.ant-popover-inner {
+			max-width: calc(100vw - 16px);
+			max-height: calc(100vh - 120px);
+			overflow: auto;
+		}
+	}
+
+	// Page header toolbars can hold more buttons than fit; let them scroll sideways rather
+	// than pushing buttons off the edge of the screen
+	.app-header {
+		.left-section {
+			flex: 0 0 auto;
+		}
+
+		.right-section {
+			flex: 1 1 auto;
+			min-width: 0;
+			overflow-x: auto;
+			scrollbar-width: none;
+
+			&::-webkit-scrollbar {
+				display: none;
+			}
+
+			// Keep the buttons right-aligned when they fit, without losing the leftmost ones
+			// when they don't (justify-content: flex-end would make those unreachable)
+			&>:first-child {
+				margin-left: auto;
+			}
+
+			&>* {
+				flex-shrink: 0;
+			}
+		}
+	}
+
+	// Homebrew editors show the editor and a live preview side by side, which leaves each
+	// too narrow to use on a phone; give the editor the full width and drop the preview
+	// (the saved element can still be viewed in the library)
+	.library-edit-page {
+		.library-edit-page-content {
+			padding: 10px;
+		}
+
+		[class*='-preview-column'] {
+			display: none;
+		}
+	}
+
+	// Let the rich text editor's toolbar wrap rather than run off the edge
+	.markdown-editor [role='toolbar'] {
+		flex-wrap: wrap;
+		height: auto;
+	}
+}
