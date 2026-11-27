@@ -1,13 +1,11 @@
-import { Alert, Button, Segmented, Space, Upload } from 'antd';
+import { Alert, Button, Segmented, Space } from 'antd';
 import { AppFooter, FooterParams } from '@/components/panels/app-footer/app-footer';
-import { DownloadOutlined, PlayCircleOutlined, ReadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, ReadOutlined, SaveOutlined } from '@ant-design/icons';
 import { AdventureLogic } from '@/logic/adventure-logic';
 import { AppHeader } from '@/components/panels/app-header/app-header';
-import { BackupLogic } from '@/logic/backup-logic';
 import { ButtonGroup } from '@/components/controls/button-group/button-group';
 import { Counter } from '@/models/counter';
 import { CounterRunPanel } from '@/components/panels/run/counter-run/counter-run-panel';
-import { DangerButton } from '@/components/controls/danger-button/danger-button';
 import { Empty } from '@/components/controls/empty/empty';
 import { Encounter } from '@/models/encounter';
 import { EncounterData } from '@/data/encounter-data';
@@ -24,6 +22,7 @@ import { NegotiationRunPanel } from '@/components/panels/run/negotiation-run/neg
 import { NumberSpin } from '@/components/controls/number-spin/number-spin';
 import { PanelMode } from '@/enums/panel-mode';
 import { Session } from '@/models/session';
+import { SessionFilePanel } from '@/components/panels/backup/session-file-panel';
 import { Sourcebook } from '@/models/sourcebook';
 import { SourcebookLogic } from '@/logic/sourcebook-logic';
 import { TacticalMap } from '@/models/tactical-map';
@@ -70,8 +69,6 @@ export const SessionDirectorPage = (props: Props) => {
 	const [ startElement, setStartElement ] = useState<string>('encounter');
 	const [ newCounterName, setNewCounterName ] = useState<string>('');
 	const [ newCounterValue, setNewCounterValue ] = useState<number>(0);
-	const [ pendingSession, setPendingSession ] = useState<Session | null>(null);
-	const [ sessionFileError, setSessionFileError ] = useState<string | null>(null);
 	useTitle('Session');
 
 	const getSelector = () => {
@@ -375,72 +372,12 @@ export const SessionDirectorPage = (props: Props) => {
 	};
 
 	const getSaveLoadContent = () => {
-		const itemCount = BackupLogic.countSessionItems(session);
-		const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
-
 		return (
-			<div style={{ width: '300px', maxWidth: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-				<div className='ds-text'>
-					Save this session (every encounter, montage, negotiation, map and counter in it, as they are now) to a file, or load a session from one.
-				</div>
-				<Button
-					block={true}
-					icon={<DownloadOutlined />}
-					disabled={itemCount === 0}
-					onClick={() => Utils.exportData(`Session ${new Date().toISOString().substring(0, 10)}`, session, 'session')}
-				>
-					Export Session
-				</Button>
-				<Upload
-					style={{ width: '100%' }}
-					accept='.ds-session'
-					showUploadList={false}
-					beforeUpload={file => {
-						setSessionFileError(null);
-						setPendingSession(null);
-						file
-							.text()
-							.then(json => setPendingSession(BackupLogic.parseSession(json)))
-							.catch(err => setSessionFileError(Utils.getErrorMessage(err)));
-						return false;
-					}}
-				>
-					<Button block={true} icon={<UploadOutlined />}>
-						Import Session...
-					</Button>
-				</Upload>
-				{
-					pendingSession ?
-						<Alert
-							type='warning'
-							showIcon={true}
-							title={`This file has ${plural(BackupLogic.countSessionItems(pendingSession), 'item')}`}
-							description={
-								<Space orientation='vertical' style={{ width: '100%' }}>
-									<div className='ds-text'>
-										Loading it <b>replaces your current session</b>{itemCount > 0 ? ` (${plural(itemCount, 'item')})` : ''}.
-									</div>
-									<DangerButton
-										mode='block'
-										label='Replace Session'
-										icon={<UploadOutlined />}
-										message={<div className='ds-text'>Your current session will be replaced. Are you sure?</div>}
-										onConfirm={() => {
-											setSelectedElementID(props.importSession(pendingSession));
-											setPendingSession(null);
-										}}
-									/>
-									<Button block={true} onClick={() => setPendingSession(null)}>Cancel</Button>
-								</Space>
-							}
-						/>
-						: null
-				}
-				{
-					sessionFileError ?
-						<Alert type='error' showIcon={true} title={sessionFileError} />
-						: null
-				}
+			<div style={{ width: '300px', maxWidth: '100%' }}>
+				<SessionFilePanel
+					session={session}
+					importSession={imported => setSelectedElementID(props.importSession(imported))}
+				/>
 			</div>
 		);
 	};

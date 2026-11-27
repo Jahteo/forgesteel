@@ -15,21 +15,24 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 **PR:** [#16](https://github.com/jahteo/forgesteel/pull/16) — `claude/data-export-import`
 
-Adds a **Backup and Restore** section to Settings that saves everything (heroes, homebrew sourcebooks, the director session, settings and hidden sourcebooks) to one `.ds-backup` file, and restores from one after showing what's in it. Also adds a **Save / Load** menu to the session page to export the current session (every running encounter, montage, negotiation, map and counter, with their live state) to a `.ds-session` file and load one back. Previously there was no way to back up a session at all, and the Backup page only saved heroes and sourcebooks one file at a time.
+Makes the **Backup page** the one place to back up and restore: it now has **Export Everything / Import Everything** (heroes, homebrew sourcebooks, the director session, settings and hidden sourcebooks in one `.ds-backup` file), **Export Session / Import Session** (the running session, with live encounter state, as a `.ds-session` file), and the existing per-hero / per-sourcebook downloads — plus the normal header and footer. **Settings → Backup and Restore** has the Export/Import Everything buttons for quick access and a link to the Backup page; the session page's **Save / Load** menu has the session export/import. Previously there was no way to back up a session, and the Backup page only saved heroes and sourcebooks one file at a time.
 
 **How to test:**
 1. Run `npx vite --host` and open http://localhost:5173
-2. Open **Settings** (footer) → **Backup and Restore** → **Export Everything** — a `Forge Steel Backup <date>.ds-backup` file downloads
-3. Change or delete something (e.g. delete a hero), then **Import Everything...** and pick the file — a summary shows the backup's date and contents; **Replace My Data** → confirm, and the app reloads with the backed-up data
-4. Go to **Session**, start an encounter and change something (e.g. malice), then **Save / Load** → **Export Session**
-5. Finish the encounter, then **Save / Load** → **Import Session...** → pick the file → **Replace Session** → confirm — the encounter is back as it was
+2. Open **Settings** (footer) → **Backup and Restore** → **Export Everything** — a `Forge Steel Backup <date>.ds-backup` file downloads. Click **Open the Backup Page for more options** — Settings closes and the Backup page opens (also reachable from the welcome page's menu → **Backup**)
+3. On the Backup page, change or delete something (e.g. delete a hero first), then **Import Everything...** and pick the file — a summary shows the backup's date and contents; **Replace My Data** → confirm, and the app reloads with the backed-up data
+4. Start an encounter and change something (e.g. malice); on the Backup page (or the session page's **Save / Load**) **Export Session**, finish the encounter, then **Import Session...** → **Replace Session** → confirm — the encounter is back as it was
 
 **Files changed:**
-- `src/logic/backup-logic.ts` *(new)* — builds, checks, summarises and restores backups through `DataService` (so it works with local storage and Warehouse/Patreon cloud storage); parses session files. Connection settings (which hold access tokens) are deliberately left out of backups
-- `src/logic/backup-logic.test.ts` *(new)* — 17 unit tests, including a backup → restore round trip, full heroes from cloud storage (which only lists hero summaries), and rejection of wrong/damaged/newer files
-- `src/components/modals/settings/settings-modal.tsx` — new **Backup and Restore** section
-- `src/components/pages/session/director/session-director-page.tsx` — new **Save / Load** header menu
-- `src/components/main/main.tsx` — `importSession`, which runs the usual session update logic on an imported session before saving it
+- `src/logic/backup-logic.ts` *(new)* — builds, checks, summarises and restores backups through `DataService` (so it works with local storage and Warehouse/Patreon cloud storage, fetching full heroes where cloud storage only lists summaries); parses session files. Connection settings (which hold access tokens) are deliberately left out of backups
+- `src/logic/backup-logic.test.ts` *(new)* — 17 unit tests, including a backup → restore round trip, full heroes from cloud storage, and rejection of wrong/damaged/newer files
+- `src/components/panels/backup/backup-restore-panel.tsx` *(new)* — Export/Import Everything UI, shared by the Backup page and Settings
+- `src/components/panels/backup/session-file-panel.tsx` *(new)* — Export/Import Session UI, shared by the Backup page and the session page
+- `src/components/pages/backup/backup-page.tsx` / `.scss` — Backup page rebuilt around those panels, with header, footer, and phone layout
+- `src/components/modals/settings/settings-modal.tsx` — **Backup and Restore** section (quick buttons + link to the Backup page)
+- `src/components/pages/session/director/session-director-page.tsx` — **Save / Load** header menu
+- `src/components/main/main.tsx` — `importSession`; Backup page route gets the data service, connection settings and footer
+- `src/components/panels/app-footer/app-footer.tsx` — allows `'backup'` as a footer page
 
 **Screenshots:**
 
@@ -37,7 +40,7 @@ Adds a **Backup and Restore** section to Settings that saves everything (heroes,
 |--------|-------|
 | ![Before](https://raw.githubusercontent.com/jahteo/forgesteel/claude/data-export-import/screenshots/backup-before.png) | ![After](https://raw.githubusercontent.com/jahteo/forgesteel/claude/data-export-import/screenshots/backup-after.png) |
 
-**Upstream PR notes:** Good upstream candidate — upstream has no session export or whole-app backup either. When merging into the upstream sync (#14), `main.tsx` needs `UpdateLogic.updateSession` instead of `SessionUpdateLogic.updateSession` (upstream centralised its update logic); `backup-logic.ts` itself doesn't depend on the update modules.
+**Upstream PR notes:** Good upstream candidate — upstream has no session export or whole-app backup either. When merging into the upstream sync (#14), `main.tsx` needs `UpdateLogic.updateSession` instead of `SessionUpdateLogic.updateSession` (upstream centralised its update logic) and the Backup page route moves to upstream's `app-routes.tsx`; `backup-logic.ts` and the two panels don't depend on the update modules.
 
 ### Multi-branch GitHub Pages preview deployments
 

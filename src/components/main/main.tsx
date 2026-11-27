@@ -1982,6 +1982,10 @@ export const Main = (props: Props) => {
 						element={
 							<BackupPage
 								homebrewSourcebooks={homebrewSourcebooks}
+								dataService={dataService}
+								connectionSettings={connectionSettings}
+								params={footerParams}
+								importSession={importSession}
 							/>
 						}
 					/>
