@@ -13,7 +13,7 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 ### Phone-friendly layout (session, library, editors)
 
-**PR:** *(pending)* — `claude/mobile-responsive` (stacked on `claude/festive-maxwell-i3mo26`)
+**PR:** [#15](https://github.com/jahteo/forgesteel/pull/15) — `claude/mobile-responsive` (stacked on `claude/festive-maxwell-i3mo26`)
 
 Makes the app usable on a phone (tested at iPhone 13 size, 390px wide). Previously the encounter runner was pushed off-screen by its notes sidebar, the library never showed the selected item, homebrew editors were squashed beside their preview, and header buttons ran off the edge of the screen. All changes only apply below the app's existing 1000px `useIsSmall()` breakpoint; desktop is pixel-identical.
 
