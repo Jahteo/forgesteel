@@ -26,7 +26,7 @@ Adds a **Backup and Restore** section to Settings that saves everything (heroes,
 
 **Files changed:**
 - `src/logic/backup-logic.ts` *(new)* — builds, checks, summarises and restores backups through `DataService` (so it works with local storage and Warehouse/Patreon cloud storage); parses session files. Connection settings (which hold access tokens) are deliberately left out of backups
-- `src/logic/backup-logic.test.ts` *(new)* — 15 unit tests, including a backup → restore round trip and rejection of wrong/damaged/newer files
+- `src/logic/backup-logic.test.ts` *(new)* — 17 unit tests, including a backup → restore round trip, full heroes from cloud storage (which only lists hero summaries), and rejection of wrong/damaged/newer files
 - `src/components/modals/settings/settings-modal.tsx` — new **Backup and Restore** section
 - `src/components/pages/session/director/session-director-page.tsx` — new **Save / Load** header menu
 - `src/components/main/main.tsx` — `importSession`, which runs the usual session update logic on an imported session before saving it

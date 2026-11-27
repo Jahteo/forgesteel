@@ -37,7 +37,7 @@ const isObject = (value: unknown): value is Record<string, unknown> => {
 export class BackupLogic {
 	static createBackup = async (dataService: DataService): Promise<Backup> => {
 		const [ heroes, homebrewSourcebooks, session, options, hiddenSourcebookIDs ] = await Promise.all([
-			dataService.getHeroes(),
+			BackupLogic.getFullHeroes(dataService),
 			dataService.getHomebrew(),
 			dataService.getSession(),
 			dataService.getOptions(),
@@ -54,6 +54,22 @@ export class BackupLogic {
 			options: options,
 			hiddenSourcebookIDs: hiddenSourcebookIDs
 		};
+	};
+
+	/**
+	 * With cloud (Warehouse) storage, getHeroes() only returns a summary of each hero (name and folder),
+	 * so each hero is fetched in full. If any can't be fetched, no backup is made, rather than an incomplete one.
+	 */
+	static getFullHeroes = async (dataService: DataService): Promise<Hero[]> => {
+		const summaries = await dataService.getHeroes();
+		const heroes = await Promise.all(summaries.map(s => dataService.getHero(s.id)));
+
+		const missing = summaries.filter((_s, n) => !heroes[n]);
+		if (missing.length > 0) {
+			throw new Error(`These heroes couldn't be loaded, so no backup was made: ${missing.map(h => h.name || h.id).join(', ')}`);
+		}
+
+		return heroes as Hero[];
 	};
 
 	/**

@@ -11,7 +11,8 @@ const hero = (id: string) => ({ id: id, name: id }) as Hero;
 const sourcebook = (id: string) => ({ id: id, name: id }) as Sourcebook;
 
 // An in-memory stand-in for the data service
-const createDataService = (initial: { heroes: Hero[], sourcebooks: Sourcebook[], session: Session, options: Options, hidden: string[] }) => {
+// With summariesOnly, getHeroes() behaves like cloud (Warehouse) storage and returns only each hero's name and folder
+const createDataService = (initial: { heroes: Hero[], sourcebooks: Sourcebook[], session: Session, options: Options, hidden: string[] }, summariesOnly = false) => {
 	const store = {
 		heroes: [ ...initial.heroes ],
 		sourcebooks: [ ...initial.sourcebooks ],
@@ -21,7 +22,8 @@ const createDataService = (initial: { heroes: Hero[], sourcebooks: Sourcebook[],
 	};
 
 	const service = {
-		getHeroes: vi.fn(() => Promise.resolve([ ...store.heroes ])),
+		getHeroes: vi.fn(() => Promise.resolve(summariesOnly ? store.heroes.map(h => ({ id: h.id, name: h.name, folder: h.folder }) as Hero) : [ ...store.heroes ])),
+		getHero: vi.fn((id: string) => Promise.resolve(store.heroes.find(h => h.id === id) ?? null)),
 		saveHero: vi.fn((h: Hero) => {
 			store.heroes = [ ...store.heroes.filter(x => x.id !== h.id), h ];
 			return Promise.resolve(h);
@@ -92,6 +94,22 @@ describe('createBackup', () => {
 		expect(backup.session).toEqual(session);
 		expect(backup.options).toEqual(options);
 		expect(backup.hiddenSourcebookIDs).toEqual([ 'x' ]);
+	});
+
+	test('backs up full heroes when storage only lists summaries (cloud storage)', async () => {
+		const full = { ...hero('h1'), folder: 'Party', state: { staminaDamage: 5 } } as unknown as Hero;
+		const { service } = createDataService({ heroes: [ full ], sourcebooks: [], session: FactoryLogic.createSession(), options: FactoryLogic.createOptions(), hidden: [] }, true);
+
+		const backup = await BackupLogic.createBackup(service);
+
+		expect(backup.heroes).toEqual([ full ]);
+	});
+
+	test('refuses to make an incomplete backup if a hero can\'t be loaded', async () => {
+		const { service } = createDataService({ heroes: [ hero('h1'), hero('h2') ], sourcebooks: [], session: FactoryLogic.createSession(), options: FactoryLogic.createOptions(), hidden: [] });
+		(service.getHero as ReturnType<typeof vi.fn>).mockImplementation((id: string) => Promise.resolve(id === 'h2' ? null : hero(id)));
+
+		await expect(BackupLogic.createBackup(service)).rejects.toThrow('couldn\'t be loaded, so no backup was made: h2');
 	});
 
 	test('does not include connection settings', async () => {
