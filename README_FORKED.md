@@ -11,6 +11,22 @@ After merging to `main`, the app is automatically deployed to GitHub Pages:
 
 ## Changes
 
+### Require the branch preview URL in every PR description
+
+**PR:** *(pending)* — `claude/pr-preview-url`
+
+Every PR description must now include its branch preview URL (`https://jahteo.github.io/forgesteel/preview/<branch-slug>/`), so changes can be tried in a browser — including on a phone — without running them locally. `CLAUDE.md` documents the requirement, how the URL is derived from the branch name (matching the `fork-branch-previews.yml` workflow) and a one-line command to work it out; the PR template gains a `## Preview` section.
+
+**How to test:**
+1. Open a new PR on GitHub — the description template has a **Preview** section
+2. Run the command in `CLAUDE.md` → *Branch preview URL* on any branch and check it matches the URL in that branch's `Fork — Branch Preview Deploy` workflow summary
+
+**Files changed:**
+- `CLAUDE.md` — new requirement and a *Branch preview URL* section
+- `.github/pull_request_template.md` — new `## Preview` section
+
+**Upstream PR notes:** Fork-only (the preview deployments are fork-specific); never upstream.
+
 ### Multi-branch GitHub Pages preview deployments
 
 **PR:** [#7](https://github.com/jahteo/forgesteel/pull/7) — `claude/github-pages-multi-branch-x634e5`
