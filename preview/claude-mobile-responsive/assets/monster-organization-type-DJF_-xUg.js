@@ -1,0 +1,1 @@
+var e=function(e){return e.Minion=`Minion`,e.Horde=`Horde`,e.Platoon=`Platoon`,e.Elite=`Elite`,e.Leader=`Leader`,e.Solo=`Solo`,e.Retainer=`Retainer`,e.Champion=`Champion`,e.Companion=`Companion`,e.NoOrganization=`No Organization`,e}({});export{e as t};

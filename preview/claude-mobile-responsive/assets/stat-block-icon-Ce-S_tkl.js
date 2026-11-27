@@ -1,0 +1,1 @@
+var e=function(e){return e.Area=`Area`,e.AuraBurst=`Aura`,e.Distance=`Distance`,e.Melee=`Melee`,e.MeleeRanged=`MeleeRanged`,e.Ranged=`Ranged`,e.Self=`Self`,e.SpecialArea=`Special`,e.Target=`Target`,e.Trait=`Trait`,e.Trigger=`Trigger`,e.Villain=`Villain`,e}({});export{e as t};

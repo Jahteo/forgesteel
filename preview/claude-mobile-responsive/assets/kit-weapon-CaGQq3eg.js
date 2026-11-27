@@ -1,0 +1,1 @@
+var e=function(e){return e.Bow=`Bow`,e.Ensnaring=`Ensnaring Weapon`,e.Heavy=`Heavy Weapon`,e.Light=`Light Weapon`,e.Medium=`Medium Weapon`,e.Polearm=`Polearm`,e.Unarmed=`Unarmed Strike`,e.Whip=`Whip`,e}({});export{e as t};

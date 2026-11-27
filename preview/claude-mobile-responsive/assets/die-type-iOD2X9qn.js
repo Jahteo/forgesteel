@@ -1,0 +1,1 @@
+var e=function(e){return e.D3=`d3`,e.D6=`d6`,e.D10=`d10`,e}({});export{e as t};

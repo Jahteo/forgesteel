@@ -1,0 +1,1 @@
+import{F as e}from"./error-boundary-lJ0tgJ1Y.js";var t=e(),n=e=>{let n=`label-control`;return e.disabled&&(n+=` disabled`),(0,t.jsxs)(`div`,{className:n,style:e.style,children:[(0,t.jsx)(`span`,{className:`label-control-label`,children:e.label}),(0,t.jsx)(`span`,{className:`label-control-control`,children:e.control})]})};export{n as t};
