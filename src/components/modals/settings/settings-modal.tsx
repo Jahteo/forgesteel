@@ -1,7 +1,8 @@
 import { Alert, Button, Drawer, Flex, Segmented, Select, Space } from 'antd';
-import { FlagFilled, FlagOutlined, MoonOutlined, SettingOutlined, SunOutlined } from '@ant-design/icons';
+import { FlagFilled, FlagOutlined, MoonOutlined, SaveOutlined, SettingOutlined, SunOutlined } from '@ant-design/icons';
 import { useDataManager, useHeroes, useOptions } from '@/contexts/data-context';
 import { AbilityData } from '@/data/ability-data';
+import { BackupRestorePanel } from '@/components/panels/backup/backup-restore-panel';
 import { Collections } from '@/utils/collections';
 import { ConnectionSettings } from '@/models/connection-settings';
 import { ConnectionSettingsPanel } from '@/components/panels/connection-settings/connection-settings-panel';
@@ -24,6 +25,7 @@ import { TextInput } from '@/components/controls/text-input/text-input';
 import { Toggle } from '@/components/controls/toggle/toggle';
 import { Utils } from '@/utils/utils';
 import { WarehouseActionsPanel } from '@/components/panels/connection-settings/warehouse-actions-panel';
+import { useNavigation } from '@/hooks/use-navigation';
 import { useState } from 'react';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -38,6 +40,7 @@ interface Props {
 
 export const SettingsModal = (props: Props) => {
 	const { themeMode, setTheme } = useTheme();
+	const navigation = useNavigation();
 	const [ options, setOptions ] = useState<Options>(Utils.copy(useOptions()));
 	const [ page, setPage ] = useState<string>('Settings');
 	const [ standardAbilitiesMode, setStandardAbilitiesMode ] = useState<string>(() => {
@@ -621,6 +624,30 @@ export const SettingsModal = (props: Props) => {
 		);
 	};
 
+	const getBackup = () => {
+		return (
+			<Expander title='Backup and Restore'>
+				<Space orientation='vertical' style={{ width: '100%' }}>
+					<BackupRestorePanel
+						dataService={props.dataService}
+						connectionSettings={connectionSettings}
+					/>
+					<Button
+						block={true}
+						type='link'
+						icon={<SaveOutlined />}
+						onClick={() => {
+							props.onClose();
+							navigation.goToBackup();
+						}}
+					>
+						Open the Backup Page for more options
+					</Button>
+				</Space>
+			</Expander>
+		);
+	};
+
 	const getConnections = () => {
 		const getWarehouseConnection = () => {
 			if (FeatureFlags.hasFlag(FeatureFlags.warehouse.code)) {
@@ -731,6 +758,7 @@ export const SettingsModal = (props: Props) => {
 						{getEncounterRunner()}
 						{getDifficulty()}
 						{getTacticalMaps()}
+						{getBackup()}
 						{getConnections()}
 					</Space>
 				);

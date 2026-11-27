@@ -1,6 +1,6 @@
 import { Alert, Button, Segmented, Space } from 'antd';
 import { AppFooter, FooterParams } from '@/components/panels/app-footer/app-footer';
-import { PlayCircleOutlined, ReadOutlined } from '@ant-design/icons';
+import { PlayCircleOutlined, ReadOutlined, SaveOutlined } from '@ant-design/icons';
 import { AdventureLogic } from '@/logic/adventure-logic';
 import { AppHeader } from '@/components/panels/app-header/app-header';
 import { ButtonGroup } from '@/components/controls/button-group/button-group';
@@ -21,6 +21,8 @@ import { NegotiationData } from '@/data/negotiation-data';
 import { NegotiationRunPanel } from '@/components/panels/run/negotiation-run/negotiation-run-panel';
 import { NumberSpin } from '@/components/controls/number-spin/number-spin';
 import { PanelMode } from '@/enums/panel-mode';
+import { Session } from '@/models/session';
+import { SessionFilePanel } from '@/components/panels/backup/session-file-panel';
 import { Sourcebook } from '@/models/sourcebook';
 import { SourcebookLogic } from '@/logic/sourcebook-logic';
 import { TacticalMap } from '@/models/tactical-map';
@@ -52,6 +54,7 @@ interface Props {
 	updateMap: (map: TacticalMap) => void;
 	updateCounter: (counter: Counter) => void;
 	finishSessionElement: (id: string) => string | null;
+	importSession: (session: Session) => string | null;
 	showEncounterTools: (encounter: Encounter, tool: string) => void;
 }
 
@@ -368,6 +371,17 @@ export const SessionDirectorPage = (props: Props) => {
 		}
 	};
 
+	const getSaveLoadContent = () => {
+		return (
+			<div style={{ width: '300px', maxWidth: '100%' }}>
+				<SessionFilePanel
+					session={session}
+					importSession={imported => setSelectedElementID(props.importSession(imported))}
+				/>
+			</div>
+		);
+	};
+
 	return (
 		<ErrorBoundary>
 			<div className='session-director-page'>
@@ -393,7 +407,13 @@ export const SessionDirectorPage = (props: Props) => {
 								)
 							},
 							{ type: 'danger', label: isSmall ? undefined : 'Finish', disabled: !selectedElementID, onClick: finish },
-							{ type: 'button', label: isSmall ? undefined : 'Player View', icon: <PlayCircleOutlined />, onClick: props.showPlayerView }
+							{ type: 'button', label: isSmall ? undefined : 'Player View', icon: <PlayCircleOutlined />, onClick: props.showPlayerView },
+							{
+								type: 'dropdown',
+								label: isSmall ? undefined : 'Save / Load',
+								icon: <SaveOutlined />,
+								popover: getSaveLoadContent()
+							}
 						]}
 					/>
 				</AppHeader>
