@@ -4,7 +4,36 @@
 
 **Every PR that touches the UI must include before & after screenshots in the PR description.**
 
-This is a hard requirement. No exceptions.
+**Every PR description must include the branch preview URL**, so the change can be tried in a browser (including on a phone) without running it locally. Put it in a `## Preview` section near the top — see [Branch preview URL](#branch-preview-url) below for how to work it out.
+
+These are hard requirements. No exceptions.
+
+---
+
+## Branch preview URL
+
+Every push to a branch other than `main` is built and deployed by the `Fork — Branch Preview Deploy` workflow (`.github/workflows/fork-branch-previews.yml`) to:
+
+```
+https://jahteo.github.io/forgesteel/preview/<branch-slug>/
+```
+
+`<branch-slug>` is the branch name lowercased, with every run of characters other than `a-z` and `0-9` replaced by a single `-`, and no leading or trailing `-`. For example, `claude/mobile-responsive` → `claude-mobile-responsive`, so its preview is `https://jahteo.github.io/forgesteel/preview/claude-mobile-responsive/`.
+
+```bash
+# Work out the preview URL for the current branch
+echo "https://jahteo.github.io/forgesteel/preview/$(git branch --show-current | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/-\+/-/g; s/^-\|-$//g')/"
+```
+
+The preview is ready about a minute after the push, once the workflow run for that commit has finished. It shares saved data with the live site (same `jahteo.github.io` origin), so mention this in the PR if the change touches stored data.
+
+In the PR description:
+
+```markdown
+## Preview
+
+https://jahteo.github.io/forgesteel/preview/<branch-slug>/
+```
 
 ---
 
