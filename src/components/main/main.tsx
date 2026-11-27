@@ -85,6 +85,7 @@ import { Session } from '@/models/session';
 import { SessionDirectorPage } from '@/components/pages/session/director/session-director-page';
 import { SessionLogic } from '@/logic/session-logic';
 import { SessionPlayerPage } from '@/components/pages/session/player/session-player-page';
+import { SessionUpdateLogic } from '@/logic/update/session-update-logic';
 import { SettingsModal } from '@/components/modals/settings/settings-modal';
 import { SourcebookLogic } from '@/logic/sourcebook-logic';
 import { SourcebookType } from '@/enums/sourcebook-type';
@@ -1418,6 +1419,16 @@ export const Main = (props: Props) => {
 		return options.length > 0 ? options[0].id : null;
 	};
 
+	// Replaces the whole session with one loaded from a file; returns the ID of the item to show
+	const importSession = (imported: Session) => {
+		const copy = Utils.copy(imported);
+		SessionUpdateLogic.updateSession(copy);
+		persistSession(copy);
+
+		const options = AdventureLogic.getContentOptions(copy);
+		return options.length > 0 ? options[0].id : null;
+	};
+
 	// #endregion
 
 	// #region Modals
@@ -1939,6 +1950,7 @@ export const Main = (props: Props) => {
 									updateMap={updateMap}
 									updateCounter={updateCounter}
 									finishSessionElement={finishSessionElement}
+									importSession={importSession}
 									showEncounterTools={showEncounterTools}
 								/>
 							}
